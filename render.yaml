@@ -29,5 +29,7 @@ services:
         value: open_food_facts
       - key: OFF_USER_AGENT
         sync: false # e.g. "FitPlan/1.0 (your-contact@example.com)"
+      - key: MAINTENANCE_TOKEN
+        generateValue: true # copy it into the GitHub secret FITPLAN_MAINTENANCE_TOKEN
       - key: FEATURE_AI_MEAL_PARSING
         value: "false"

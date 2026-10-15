@@ -28,7 +28,7 @@ log workouts, food and body weight.
 
 | Area | What it does |
 |---|---|
-| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); it is hard-deleted on logout or once its 7-day session expires (expired guests are purged on the next login, registration or guest start, since the free tier has no scheduler). Guest data cannot be moved into a regular account. |
+| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); its session lasts 7 days. The account and all its data are hard-deleted on logout; if the user never logs out, they are deleted by the next cleanup after the session expires (see [Guest cleanup](#guest-cleanup)). Guest data cannot be moved into a regular account. |
 | Consent | Explicit consent for health-related data at registration, stored with timestamp and policy version. The app is unusable without consent for the current version. |
 | Onboarding | Name, biological sex (for the formula only), birth date (18+ enforced server-side), height, weight, activity level, goal, 2–6 training days, experience, equipment (gym). |
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
@@ -192,6 +192,7 @@ Backend (`backend/.env.example`):
 | `FOOD_SOURCE` | `none` | External food database: `none`, `open_food_facts` (or `mock` in tests) |
 | `OFF_USER_AGENT` | placeholder | Identifies the app to Open Food Facts: `App/Version (contact email)` |
 | `FEATURE_AI_MEAL_PARSING` | `false` | V2 placeholder; keep `false` |
+| `MAINTENANCE_TOKEN` | empty (disabled) | Bearer token for the scheduled guest cleanup endpoint; ≥ 32 characters |
 
 Frontend (`frontend/.env.example`): `DEV_API_URL` (dev proxy target) and `BACKEND_URL`
 (Netlify build only; the https URL of the Render service).
@@ -241,6 +242,26 @@ All three have free tiers. Choose EU regions everywhere.
    `out/_redirects` with the `/api/*` proxy rule. Netlify passes cookies through the proxy;
    API responses carry `Cache-Control: no-store`, so they are never cached.
 4. Open the Netlify URL, register, and check *Settings → Exportă datele*.
+5. Set up the [guest cleanup](#guest-cleanup).
+
+### Guest cleanup
+
+Expired guest accounts (session older than 7 days) are deleted with all their data by
+`POST /api/v1/internal/purge-guests`. The endpoint needs `Authorization: Bearer
+<MAINTENANCE_TOKEN>` and answers 404 while `MAINTENANCE_TOKEN` is unset. The workflow
+[`.github/workflows/purge-guests.yml`](.github/workflows/purge-guests.yml) calls it daily
+(03:17 UTC, with retries for a sleeping backend) and can also be started by hand.
+
+To enable it, add two repository secrets in GitHub (*Settings → Secrets and variables →
+Actions*):
+
+- `FITPLAN_API_URL`: the Render URL, e.g. `https://fitplan-api.onrender.com`;
+- `FITPLAN_MAINTENANCE_TOKEN`: the same value as `MAINTENANCE_TOKEN` on Render.
+
+Until both secrets exist, the workflow skips itself and expired guests are only removed
+opportunistically (on the next login, registration or guest start). GitHub may start
+scheduled runs late, so deletion happens within roughly a day after expiry, not at an
+exact time.
 
 ### Cold starts on free tiers
 

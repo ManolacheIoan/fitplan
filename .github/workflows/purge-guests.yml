@@ -1,0 +1,32 @@
+name: Purge expired guest accounts
+
+# Daily cleanup: deletes guest accounts whose 7-day session has expired, with all their
+# data. Requires two repository secrets:
+#   FITPLAN_API_URL         public backend URL, e.g. https://fitplan-api.onrender.com
+#   FITPLAN_MAINTENANCE_TOKEN  same value as MAINTENANCE_TOKEN on the backend
+on:
+  schedule:
+    - cron: "17 3 * * *" # 03:17 UTC every day (GitHub may start scheduled runs late)
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call the cleanup endpoint
+        env:
+          API_URL: ${{ secrets.FITPLAN_API_URL }}
+          TOKEN: ${{ secrets.FITPLAN_MAINTENANCE_TOKEN }}
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$TOKEN" ]; then
+            echo "::warning::Secrets not configured; skipping guest cleanup."
+            exit 0
+          fi
+          # Retries cover a sleeping free-tier backend (cold start up to ~60 s).
+          curl --fail-with-body --silent --show-error \
+            --retry 5 --retry-delay 20 --retry-all-errors --max-time 90 \
+            -X POST "${API_URL%/}/api/v1/internal/purge-guests" \
+            -H "Authorization: Bearer ${TOKEN}"

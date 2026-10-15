@@ -1,3 +1,4 @@
+import hmac
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -162,3 +163,17 @@ def delete_account(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "invalid_credentials")
     service.delete_account(db, user)
     _clear_session_cookies(response)
+
+
+# --- Internal maintenance (called by a scheduled job, not by browsers) --------------------
+
+
+@router.post("/internal/purge-guests", include_in_schema=False)
+def purge_guests(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
+    token = get_settings().maintenance_token
+    if not token:
+        raise HTTPException(status.HTTP_404_NOT_FOUND)  # disabled: behave as if absent
+    sent = request.headers.get("authorization", "").removeprefix("Bearer ")
+    if not hmac.compare_digest(sent.encode(), token.encode()):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_token")
+    return {"deleted": service.purge_expired_guests(db)}
