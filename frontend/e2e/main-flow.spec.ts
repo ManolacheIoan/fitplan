@@ -30,6 +30,8 @@ test("register → onboarding → plan → log workout → log food → progress
 
   // Safety screening: all "no"
   await expect(page).toHaveURL(/\/profil\/screening/);
+  // The form loads the profile first (the pregnancy question is shown for female sex only).
+  await expect(page.getByRole("group")).toHaveCount(4);
   for (const group of await page.getByRole("group").all()) {
     await group.getByText("Nu", { exact: true }).click();
   }
