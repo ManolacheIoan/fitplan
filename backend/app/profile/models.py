@@ -38,6 +38,16 @@ class Equipment(StrEnum):
     GYM = "gym"
 
 
+class Program(StrEnum):
+    """Split chosen by the user; AUTO lets the generator pick one for the days per week."""
+
+    AUTO = "auto"
+    FULL_BODY = "full_body"
+    UPPER_LOWER = "upper_lower"
+    PUSH_PULL_LEGS = "push_pull_legs"
+    BRO_SPLIT = "bro_split"
+
+
 class ScreeningStatus(StrEnum):
     PASSED = "passed"
     # At least one "yes": nothing is generated; the user is referred to a professional.
@@ -70,6 +80,7 @@ class Profile(Base):
     training_days: Mapped[int]
     experience: Mapped[Experience] = mapped_column(str_enum(Experience))
     equipment: Mapped[Equipment] = mapped_column(str_enum(Equipment))
+    program: Mapped[Program] = mapped_column(str_enum(Program), server_default=Program.AUTO.value)
     # Only the outcome of the safety screening is stored, never the individual answers.
     screening_status: Mapped[ScreeningStatus | None] = mapped_column(str_enum(ScreeningStatus))
     screening_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

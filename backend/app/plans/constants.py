@@ -40,7 +40,15 @@ LOWER_BODY_PATTERNS: Final = {P.SQUAT, P.HINGE, P.LUNGE}
 # --- Split templates ---------------------------------------------------------------------------
 # Template by training days per week. Plans list one rotation of sessions; the user
 # trains them in order, `days_per_week` times per week.
-TEMPLATE_FOR_DAYS: Final = {
+# Training days per week each program supports. The plan has exactly that many days.
+ALLOWED_DAYS: Final = {
+    Template.FULL_BODY: {2, 3},
+    Template.UPPER_LOWER: {2, 4},
+    Template.PUSH_PULL_LEGS: {3, 5, 6},
+    Template.BRO_SPLIT: {5},
+}
+# Program used when the user chooses "auto".
+AUTO_TEMPLATE: Final = {
     2: Template.FULL_BODY,
     3: Template.FULL_BODY,
     4: Template.UPPER_LOWER,
@@ -133,18 +141,80 @@ _PULL_B = [
 ]
 _LEGS_A = _LOWER_A
 _LEGS_B = _LOWER_B
+# Bro split: one muscle group per day. Lists are longer than the session size so that
+# every experience level fills its sessions even when a pattern has few options.
+_CHEST = [
+    P.HORIZONTAL_PUSH,
+    P.HORIZONTAL_PUSH,
+    P.CHEST_ISOLATION,
+    P.HORIZONTAL_PUSH,
+    P.CHEST_ISOLATION,
+    P.TRICEPS,
+    P.CORE,
+    P.CORE,
+]
+_BACK = [
+    P.VERTICAL_PULL,
+    P.HORIZONTAL_PULL,
+    P.HORIZONTAL_PULL,
+    P.VERTICAL_PULL,
+    P.HINGE,
+    P.SHOULDER_ISOLATION,
+    P.CORE,
+    P.CORE,
+]
+_SHOULDERS = [
+    P.VERTICAL_PUSH,
+    P.SHOULDER_ISOLATION,
+    P.SHOULDER_ISOLATION,
+    P.VERTICAL_PUSH,
+    P.SHOULDER_ISOLATION,
+    P.TRICEPS,
+    P.CORE,
+    P.CORE,
+]
+_LEGS_BRO = [
+    P.SQUAT,
+    P.HINGE,
+    P.LUNGE,
+    P.QUAD_ISOLATION,
+    P.HAMSTRING_ISOLATION,
+    P.CALVES,
+    P.GLUTE_ISOLATION,
+    P.CORE,
+]
+_ARMS = [P.BICEPS, P.TRICEPS, P.BICEPS, P.TRICEPS, P.BICEPS, P.TRICEPS, P.CORE, P.CORE]
 
-# (day name, slots by priority) per template and days per week.
-SESSIONS: Final[dict[int, list[tuple[str, list[P]]]]] = {
-    2: [("Corp întreg A", _FULL_A), ("Corp întreg B", _FULL_B)],
-    3: [("Corp întreg A", _FULL_A), ("Corp întreg B", _FULL_B), ("Corp întreg C", _FULL_C)],
-    4: [
+Session = tuple[str, list[P]]
+
+# (day name, slots by priority) for each program and number of training days.
+SESSIONS: Final[dict[tuple[Template, int], list[Session]]] = {
+    (Template.FULL_BODY, 2): [("Corp întreg A", _FULL_A), ("Corp întreg B", _FULL_B)],
+    (Template.FULL_BODY, 3): [
+        ("Corp întreg A", _FULL_A),
+        ("Corp întreg B", _FULL_B),
+        ("Corp întreg C", _FULL_C),
+    ],
+    (Template.UPPER_LOWER, 2): [("Superior", _UPPER_A), ("Inferior", _LOWER_A)],
+    (Template.UPPER_LOWER, 4): [
         ("Superior A", _UPPER_A),
         ("Inferior A", _LOWER_A),
         ("Superior B", _UPPER_B),
         ("Inferior B", _LOWER_B),
     ],
-    5: [
+    (Template.PUSH_PULL_LEGS, 3): [
+        ("Împingere", _PUSH_A),
+        ("Tracțiune", _PULL_A),
+        ("Picioare", _LEGS_A),
+    ],
+    (Template.PUSH_PULL_LEGS, 5): [
+        ("Împingere", _PUSH_A),
+        ("Tracțiune", _PULL_A),
+        ("Picioare", _LEGS_A),
+        ("Superior", _UPPER_B),
+        ("Inferior", _LOWER_B),
+    ],
+    (Template.PUSH_PULL_LEGS, 6): [
         ("Împingere A", _PUSH_A),
         ("Tracțiune A", _PULL_A),
         ("Picioare A", _LEGS_A),
@@ -152,5 +222,11 @@ SESSIONS: Final[dict[int, list[tuple[str, list[P]]]]] = {
         ("Tracțiune B", _PULL_B),
         ("Picioare B", _LEGS_B),
     ],
+    (Template.BRO_SPLIT, 5): [
+        ("Piept", _CHEST),
+        ("Spate", _BACK),
+        ("Umeri", _SHOULDERS),
+        ("Picioare", _LEGS_BRO),
+        ("Brațe", _ARMS),
+    ],
 }
-SESSIONS[6] = SESSIONS[5]

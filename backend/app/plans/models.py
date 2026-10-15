@@ -42,6 +42,7 @@ class Template(StrEnum):
     FULL_BODY = "full_body"
     UPPER_LOWER = "upper_lower"
     PUSH_PULL_LEGS = "push_pull_legs"
+    BRO_SPLIT = "bro_split"
 
 
 class Exercise(Base):

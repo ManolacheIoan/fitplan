@@ -1,9 +1,10 @@
 import type { PlanSummary } from "./api";
 
 export const TEMPLATE_LABELS: Record<PlanSummary["template"], string> = {
-  full_body: "Corp întreg",
-  upper_lower: "Superior / Inferior",
-  push_pull_legs: "Împingere / Tracțiune / Picioare",
+  full_body: "Full Body",
+  upper_lower: "Upper / Lower",
+  push_pull_legs: "Push / Pull / Legs",
+  bro_split: "Bro Split",
 };
 
 export const MUSCLE_LABELS: Record<string, string> = {

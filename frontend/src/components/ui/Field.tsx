@@ -90,13 +90,18 @@ export function ChoiceGroup({
   name,
   options,
   defaultValue,
+  value,
+  onValueChange,
   hint,
   columns = 2,
 }: {
   legend: string;
   name: string;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; description?: string }[];
   defaultValue?: string;
+  /** Controlled mode: pass `value` and `onValueChange` together. */
+  value?: string;
+  onValueChange?: (value: string) => void;
   hint?: ReactNode;
   columns?: 1 | 2 | 3;
 }) {
@@ -114,11 +119,16 @@ export function ChoiceGroup({
               type="radio"
               name={name}
               value={o.value}
-              defaultChecked={o.value === defaultValue}
+              {...(value === undefined
+                ? { defaultChecked: o.value === defaultValue }
+                : { checked: o.value === value, onChange: () => onValueChange?.(o.value) })}
               required
               className="sr-only"
             />
-            {o.label}
+            <span>
+              <span className="block">{o.label}</span>
+              {o.description && <span className="block text-xs font-medium opacity-80">{o.description}</span>}
+            </span>
           </label>
         ))}
       </div>

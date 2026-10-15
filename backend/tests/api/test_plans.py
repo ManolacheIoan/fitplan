@@ -60,3 +60,26 @@ def test_cannot_read_another_users_plan(make_user):
     plan_id = owner.get(f"{API}/plans/current").json()["id"]
     assert other.get(f"{API}/plans/{plan_id}").status_code == 404
     assert plan_id not in [p["id"] for p in other.get(f"{API}/plans").json()["items"]]
+
+
+def test_five_training_days_give_five_plan_days(make_user):
+    c = make_user()
+    onboard(c, training_days=5)
+    plan = c.get(f"{API}/plans/current").json()
+    assert len(plan["days"]) == 5
+
+
+def test_program_choice_and_validation(make_user):
+    c = make_user()
+    onboard(c, training_days=5, program="bro_split")
+    plan = c.get(f"{API}/plans/current").json()
+    assert plan["template"] == "bro_split"
+    assert [d["name"] for d in plan["days"]] == ["Piept", "Spate", "Umeri", "Picioare", "Brațe"]
+
+    r = c.put(f"{API}/profile", json=profile_payload(training_days=4, program="bro_split"))
+    assert r.status_code == 422 and r.json()["detail"] == "program_days_mismatch"
+
+    # Switching program with the same days generates a new plan.
+    c.put(f"{API}/profile", json=profile_payload(training_days=5, program="push_pull_legs"))
+    assert c.get(f"{API}/plans/current").json()["template"] == "push_pull_legs"
+    assert len(c.get(f"{API}/plans").json()["items"]) == 2
