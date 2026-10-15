@@ -352,42 +352,34 @@ Also to review: the screening question wording (`frontend/src/features/profile/S
 and the exercise descriptions (`backend/seed/exercises.py`). After changing a formula or
 constant, bump `RULES_VERSION` in `nutrition/rules.py`.
 
-### How I validated the formulas
+### How the formulas were checked
 
-1. **Source formulas.** BMR uses the Mifflin-St Jeor equation as published (Mifflin et al.,
-   *Am J Clin Nutr* 1990;51:241–247): `10·kg + 6.25·cm − 5·age + 5` (men) / `− 161` (women).
-   The activity multipliers are the commonly used 1.2 / 1.375 / 1.55 / 1.725 / 1.9.
-2. **Unit tests with hand-derived values.** `tests/unit/test_nutrition_rules.py` checks every
+What has been done, and nothing more:
+
+1. **Unit tests with hand-derived values.** `tests/unit/test_nutrition_rules.py` checks every
    step (BMR, TDEE, deficit/surplus cap, calorie floor, macro split, edge cases). The
    arithmetic is written in the test comments.
-3. **Independent recomputation.** The three cases below were recomputed by a separate
+2. **Independent recomputation.** The three cases below were recomputed by a separate
    script that does not import FitPlan code and uses exact fractions. All values matched
    the app, and they are pinned in `tests/unit/test_nutrition_reference_cases.py`.
-4. **Sources checked online (October 2026).**
-   - Mifflin-St Jeor coefficients match the original paper
-     ([doi:10.1093/ajcn/51.2.241](https://doi.org/10.1093/ajcn/51.2.241)).
-   - Calorie floors of 1,200 (women) / 1,500 (men) kcal/day match Harvard Health's
-     [Calorie counting made easy](https://www.health.harvard.edu/staying-healthy/calorie-counting-made-easy).
-   - Protein of 1.6–2.0 g/kg sits within the ISSN position stand's 1.4–2.0 g/kg
-     ([PMC5477153](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5477153/)).
-   - The minimum fat share of 25 % is within the IOM range of 20–35 %.
-   - The activity multipliers are conventional; no single primary source was found.
-   - **Open point:** the 2013 AHA/ACC/TOS guideline mentions a 500–750 kcal/day deficit.
-     FitPlan's 20 % deficit (capped by the weekly rate) is smaller for many users, e.g.
-     446 kcal in case A. This is a decision for the reviewing professional.
-5. **Not done yet: comparison with a public calculator.** Enter the inputs below into a
-   trusted Mifflin-St Jeor calculator and compare **BMR** and **TDEE** (± 1 kcal for
-   rounding). The target calories and macros depend on FitPlan's own deficit, surplus and
-   macro constants, so other calculators will differ there by design.
+
+These checks show that **the code computes what the formulas and constants say**. They do
+not show that the formulas or constants are appropriate for users. **No health constant
+has been validated.** A qualified professional (physician / registered dietitian, and a
+certified coach for the training constants) must review every value in
+`backend/app/common/health_constants.py` and `backend/app/plans/constants.py` before
+public use.
+
+Not done yet: a comparison with a public Mifflin-St Jeor (BMR) calculator. To do it,
+enter the inputs below and compare **BMR** and **TDEE** (± 1 kcal for rounding). Target
+calories and macros depend on FitPlan's own constants, so other calculators will differ
+there by design.
 
 | Case | Inputs | BMR | TDEE | Target | Protein / Fat / Carbs (g) |
 |---|---|---|---|---|---|
 | A | Female, 30 y, 168 cm, 70 kg, moderate (×1.55), lose | 1439 | 2230.45 | 1780 (−20 %, under the 577.5 kcal cap) | 140 / 49 / 194 |
 | B | Male, 25 y, 180 cm, 80 kg, active (×1.725), gain | 1805 | 3113.63 | 3330 (+220 weekly-rate cap, not +10 %) | 144 / 92 / 481 |
 | C | Male, 45 y, 175 cm, 95 kg, light (×1.375), maintain | 1823.75 | 2507.66 | 2510 | 152 / 70 / 318 |
-
-Validation by a qualified professional is still required: these checks prove the code
-implements the formulas correctly, not that the constants are right for users.
 
 ### Known limitations
 
