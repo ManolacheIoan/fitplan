@@ -23,6 +23,7 @@ log workouts, food and body weight.
 - [Optimizations](#optimizations)
 - [Security and privacy](#security-and-privacy)
 - [Safety and limitations](#safety-and-limitations)
+- [Before going public](#before-going-public)
 
 ## Features
 
@@ -395,3 +396,20 @@ there by design.
   `X-Forwarded-For`, which can be spoofed; the per-email limit still applies.
 - The privacy policy contains placeholders for operator identity and contact, and needs
   legal review.
+
+## Before going public
+
+The code is ready for deployment, but these items are open. Most of them are not
+technical:
+
+1. **Professional validation.** A qualified professional must review every value in
+   `backend/app/common/health_constants.py` and `backend/app/plans/constants.py`, the
+   screening wording and the exercise descriptions.
+2. **Privacy policy.** Fill in the operator and contact placeholders, and have a lawyer
+   review the policy, including the processing agreements with Neon, Render and Netlify
+   and any transfers outside the EU.
+3. **Guest cleanup.** Set `MAINTENANCE_TOKEN` on Render and the two GitHub secrets
+   (see [Guest cleanup](#guest-cleanup)). The privacy policy promises the daily cleanup.
+4. **Open Food Facts.** Set `OFF_USER_AGENT`, fill in OFF's API usage form, and settle how to
+   meet ODbL section 4.6 for the locally cached products. The full list is in
+   [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
