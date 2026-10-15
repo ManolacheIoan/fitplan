@@ -8,6 +8,8 @@ const nextConfig: NextConfig = {
   // by Netlify (see netlify.toml). In dev, a rewrite mimics that proxy so cookies stay
   // same-origin. Rewrites are not allowed together with `output: "export"`.
   output: isDev ? undefined : "export",
+  // Lets E2E run its own dev server next to the one used for development.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
   ...(isDev && {
     rewrites: async () => [{ source: "/api/:path*", destination: `${devApiUrl}/api/:path*` }],
   }),
