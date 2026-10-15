@@ -4,3 +4,5 @@ node_modules
 playwright-report
 test-results
 .next-e2e
+# Rewritten by Next.js on every dev run
+tsconfig.json
