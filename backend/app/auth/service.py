@@ -23,6 +23,9 @@ from app.profile import service as profile_service
 PRIVACY_POLICY_VERSION = "2026-10-v1"
 
 _hasher = PasswordHasher()  # argon2id with the library's current recommended parameters
+# Guest accounts are temporary: deleted on logout or once their session expires.
+GUEST_TTL_DAYS = 7
+
 # Verifying against a dummy hash for unknown emails keeps login timing uniform.
 _DUMMY_HASH = _hasher.hash(secrets.token_urlsafe(16))
 
@@ -35,7 +38,9 @@ def hash_password(password: str) -> str:
     return _hasher.hash(password)
 
 
-def verify_password(password_hash: str, password: str) -> bool:
+def verify_password(password_hash: str | None, password: str) -> bool:
+    if password_hash is None:  # guests have no password
+        return False
     try:
         return _hasher.verify(password_hash, password)
     except (VerifyMismatchError, InvalidHashError):
@@ -67,6 +72,30 @@ def authenticate(db: Session, email: str, password: str) -> User | None:
     return user if verify_password(user.password_hash, password) else None
 
 
+def session_ttl_days(user: User) -> int:
+    return GUEST_TTL_DAYS if user.is_guest else get_settings().session_ttl_days
+
+
+def create_guest(db: Session) -> User:
+    """Temporary account without credentials; consent is recorded like for a registration."""
+    purge_expired_guests(db)
+    user = User(is_guest=True)
+    db.add(user)
+    db.flush()
+    db.add(Consent(user_id=user.id, policy_version=PRIVACY_POLICY_VERSION))
+    db.commit()
+    return user
+
+
+def purge_expired_guests(db: Session) -> None:
+    """Hard-delete guests without a valid session (their data goes with them)."""
+    active = select(UserSession.id).where(
+        UserSession.user_id == User.id, UserSession.expires_at > datetime.now(UTC)
+    )
+    db.execute(delete(User).where(User.is_guest, ~active.exists()))
+    db.commit()
+
+
 def create_session(db: Session, user: User) -> str:
     """Create a session and return the raw token (only its hash is persisted)."""
     token = secrets.token_urlsafe(32)
@@ -75,7 +104,7 @@ def create_session(db: Session, user: User) -> str:
     db.execute(
         delete(UserSession).where(UserSession.user_id == user.id, UserSession.expires_at <= now)
     )
-    expires_at = now + timedelta(days=get_settings().session_ttl_days)
+    expires_at = now + timedelta(days=session_ttl_days(user))
     db.add(UserSession(user_id=user.id, token_hash=_hash_token(token), expires_at=expires_at))
     db.commit()
     return token
@@ -130,6 +159,7 @@ def export_account(db: Session, user: User) -> dict[str, Any]:
     consents = db.scalars(select(Consent).where(Consent.user_id == user.id).order_by(Consent.id))
     return {
         "email": user.email,
+        "is_guest": user.is_guest,
         "created_at": user.created_at.isoformat(),
         "consents": [
             {"policy_version": c.policy_version, "accepted_at": c.accepted_at.isoformat()}

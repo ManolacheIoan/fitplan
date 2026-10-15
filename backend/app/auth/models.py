@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, UniqueConstraint, func, text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.common.db import Base
@@ -8,11 +8,18 @@ from app.common.db import Base
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        # Guests (temporary accounts) have no credentials; everyone else must have both.
+        CheckConstraint(
+            "is_guest OR (email IS NOT NULL AND password_hash IS NOT NULL)", name="credentials"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # Stored lower-cased; uniqueness is therefore case-insensitive.
-    email: Mapped[str] = mapped_column(String(254), unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255))
+    email: Mapped[str | None] = mapped_column(String(254), unique=True)
+    password_hash: Mapped[str | None] = mapped_column(String(255))
+    is_guest: Mapped[bool] = mapped_column(server_default=text("false"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

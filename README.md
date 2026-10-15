@@ -28,7 +28,7 @@ log workouts, food and body weight.
 
 | Area | What it does |
 |---|---|
-| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete), export all data as JSON. |
+| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); it is hard-deleted on logout or once its 7-day session expires (expired guests are purged on the next login, registration or guest start, since the free tier has no scheduler). Guest data cannot be moved into a regular account. |
 | Consent | Explicit consent for health-related data at registration, stored with timestamp and policy version. The app is unusable without consent for the current version. |
 | Onboarding | Name, biological sex (for the formula only), birth date (18+ enforced server-side), height, weight, activity level, goal, 2–6 training days, experience, equipment (gym). |
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
@@ -106,7 +106,7 @@ so deleting the user row deletes everything.
 
 | Table | Purpose | Notable constraints / indexes |
 |---|---|---|
-| `users` | email (lower-cased), argon2id hash | unique email |
+| `users` | email (lower-cased), argon2id hash, `is_guest` | unique email; CHECK: guest or both credentials set |
 | `sessions` | SHA-256 hash of the session token, expiry | unique token hash; idx user_id, expires_at |
 | `consents` | policy version + accepted_at | unique (user_id, policy_version) |
 | `profiles` | questionnaire + **screening outcome and timestamp only** | CHECK height 120–230, weight 30–300, days 2–6, enums |

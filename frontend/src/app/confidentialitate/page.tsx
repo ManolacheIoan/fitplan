@@ -50,6 +50,7 @@ const SECTIONS: [string, string[]][] = [
     [
       "Poți descărca oricând toate datele tale (export JSON) din Setări.",
       "Poți șterge definitiv contul din Setări; toate datele asociate sunt șterse imediat.",
+      "Cont de vizitator: nu cere email sau parolă; toate datele lui sunt șterse definitiv la ieșire sau după 7 zile.",
       "Pentru alte solicitări (rectificare, informații, plângeri) folosește adresa de contact de mai sus. Ai dreptul să depui o plângere la autoritatea de supraveghere (ANSPDCP).",
     ],
   ],
