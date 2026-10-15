@@ -102,7 +102,165 @@ frontend/netlify.toml  Netlify build, security headers
 
 ## Data model
 
-15 tables. Every user-owned table has a foreign key to `users` with `ON DELETE CASCADE`,
+```mermaid
+erDiagram
+    users ||--o{ sessions : "logs in with"
+    users ||--o{ consents : "accepts"
+    users ||--o| profiles : "has"
+    users ||--o| nutrition_targets : "gets"
+    users ||--o{ plans : "owns"
+    users ||--o{ workout_sessions : "trains"
+    users ||--o{ meal_logs : "eats"
+    users ||--o{ weight_logs : "weighs"
+    users ||--o{ foods : "adds private"
+    plans ||--|{ plan_days : "contains"
+    plan_days ||--|{ plan_exercises : "lists"
+    exercises ||--o{ plan_exercises : "prescribed as"
+    plan_days ||--o{ workout_sessions : "performed in"
+    workout_sessions ||--o{ set_logs : "records"
+    exercises ||--o{ set_logs : "logged as"
+    workout_sessions ||--o{ workout_swaps : "overrides"
+    plan_exercises ||--o{ workout_swaps : "replaced in"
+    exercises ||--o{ workout_swaps : "replacement"
+    foods ||--o{ meal_logs : "logged as"
+
+    users {
+        int id PK
+        string email "null for guests, unique"
+        string password_hash "argon2id, null for guests"
+        bool is_guest
+        timestamptz created_at
+    }
+    sessions {
+        int id PK
+        int user_id FK
+        string token_hash "sha-256, unique"
+        timestamptz expires_at
+    }
+    consents {
+        int id PK
+        int user_id FK
+        string policy_version
+        timestamptz accepted_at
+    }
+    profiles {
+        int user_id PK, FK
+        string display_name
+        string sex
+        date birth_date
+        numeric height_cm
+        numeric weight_kg
+        string activity_level
+        string goal
+        int training_days "2-6"
+        string experience
+        string equipment
+        string program
+        string screening_status "outcome only"
+        timestamptz screening_at
+    }
+    nutrition_targets {
+        int user_id PK, FK
+        int bmr_kcal
+        int tdee_kcal
+        int kcal
+        int protein_g
+        int fat_g
+        int carbs_g
+        numeric weekly_change_kg
+        bool floor_applied
+        numeric based_on_weight_kg
+        int rules_version
+    }
+    exercises {
+        int id PK
+        string slug "unique"
+        string name "English"
+        text description "Romanian"
+        string pattern
+        string rep_scheme
+        string primary_muscle
+        string equipment
+        string difficulty
+        bool is_compound
+    }
+    plans {
+        int id PK
+        int user_id FK
+        string template
+        int days_per_week
+        string goal
+        string experience
+        bool is_active "one active per user"
+        timestamptz created_at
+    }
+    plan_days {
+        int id PK
+        int plan_id FK
+        int position
+        string name
+    }
+    plan_exercises {
+        int id PK
+        int plan_day_id FK
+        int exercise_id FK
+        int position
+        int sets
+        int reps_min
+        int reps_max "reps or seconds"
+        int rest_seconds
+    }
+    workout_sessions {
+        int id PK
+        int user_id FK
+        int plan_day_id FK
+        timestamptz started_at
+        timestamptz finished_at "one open per user"
+    }
+    set_logs {
+        int id PK
+        int session_id FK
+        int exercise_id FK
+        int set_number
+        numeric weight_kg
+        int reps "reps or seconds"
+    }
+    workout_swaps {
+        int id PK
+        int session_id FK
+        int plan_exercise_id FK
+        int exercise_id FK
+    }
+    foods {
+        int id PK
+        string name
+        string search_name "normalized, trigram index"
+        numeric kcal_100g
+        numeric protein_100g
+        numeric carbs_100g
+        numeric fat_100g
+        string source "seed, manual, external"
+        string external_source
+        string external_id
+        int owner_user_id FK "private manual foods"
+    }
+    meal_logs {
+        int id PK
+        int user_id FK
+        int food_id FK
+        date eaten_on
+        numeric grams
+        string meal_type
+    }
+    weight_logs {
+        int id PK
+        int user_id FK
+        date logged_on "unique per user"
+        numeric weight_kg
+    }
+```
+
+15 application tables (plus `alembic_version`, Alembic's migration bookkeeping). Every user-owned table has a foreign key to `users` with `ON DELETE CASCADE`,
 so deleting the user row deletes everything.
 
 | Table | Purpose | Notable constraints / indexes |
@@ -110,15 +268,15 @@ so deleting the user row deletes everything.
 | `users` | email (lower-cased), argon2id hash, `is_guest` | unique email; CHECK: guest or both credentials set |
 | `sessions` | SHA-256 hash of the session token, expiry | unique token hash; idx user_id, expires_at |
 | `consents` | policy version + accepted_at | unique (user_id, policy_version) |
-| `profiles` | questionnaire + **screening outcome and timestamp only** | CHECK height 120–230, weight 30–300, days 2–6, enums |
+| `profiles` | questionnaire (incl. program choice) + **screening outcome and timestamp only** | CHECK height 120–230, weight 30–300, days 2–6, enums |
 | `nutrition_targets` | current targets, weight used, rules version | one row per user, all values ≥ 0 |
-| `exercises` | library: pattern, muscles, equipment, difficulty | unique slug |
+| `exercises` | library: English name, Romanian description, pattern, rep scheme, muscles, equipment, difficulty | unique slug |
 | `plans` | generated plan + snapshot of inputs | partial unique index: one active plan per user; idx (user_id, created_at) |
 | `plan_days` | days of a plan | unique (plan_id, position) |
-| `plan_exercises` | prescription per exercise | sets 1–10, 1 ≤ reps_min ≤ reps_max ≤ 30, rest 30–300 s |
+| `plan_exercises` | prescription per exercise (reps, or seconds for timed holds) | sets 1–10, 1 ≤ reps_min ≤ reps_max ≤ 120, rest 30–300 s |
 | `workout_sessions` | started/finished | partial unique: one open session per user; idx (user_id, started_at) |
 | `workout_swaps` | exercise replaced for one session only | unique (session_id, plan_exercise_id) |
-| `set_logs` | weight × reps | weight 0–500, reps 1–100; idx session_id, exercise_id |
+| `set_logs` | weight × reps (or seconds) | weight 0–500, reps 1–300; idx session_id, exercise_id |
 | `weight_logs` | one entry per day | unique (user_id, logged_on); weight 30–300 |
 | `foods` | per 100 g; global (seed/external) or private (manual) | kcal 0–900, macros sum ≤ 100; GIN trigram index; unique (external_source, external_id) |
 | `meal_logs` | food + grams + meal category per day | grams 0–5000; idx (user_id, eaten_on) |
