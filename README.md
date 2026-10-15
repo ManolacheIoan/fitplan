@@ -154,8 +154,8 @@ completed profile and a passed screening (`409 profile_missing | screening_requi
 Requirements: Python 3.13, Node 24, Docker (or a local PostgreSQL 16+).
 
 ```bash
-# 1. Database
-docker run -d --name fitplan-db -p 5433:5432 \
+# 1. Database (bound to 127.0.0.1 only; the credentials are local-only dev values)
+docker run -d --name fitplan-db -p 127.0.0.1:5433:5432 \
   -e POSTGRES_USER=fitplan -e POSTGRES_PASSWORD=fitplan -e POSTGRES_DB=fitplan postgres:17-alpine
 docker exec fitplan-db psql -U fitplan -c "CREATE DATABASE fitplan_test;"
 
