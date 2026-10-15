@@ -5,6 +5,7 @@ import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
+import type { Exercise } from "@/features/plans/api";
 import { reps as repRange } from "@/features/plans/labels";
 import { formatDateTime, nf1 } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
@@ -19,15 +20,41 @@ import {
   type WorkoutExercise,
 } from "./api";
 
+/** How a set is measured: held for time, or reps with an external / extra load. */
+type Measure = { timed: boolean; bodyweight: boolean };
+
+const measureOf = (exercise: Exercise): Measure => ({
+  timed: exercise.unit === "seconds",
+  bodyweight: exercise.equipment === "bodyweight",
+});
+
+function setText(weightKg: string | number, reps: number, m: Measure): string {
+  if (m.timed) return `${reps} s`;
+  const kg = Number(weightKg);
+  if (m.bodyweight) return kg > 0 ? `${reps} rep. +${nf1.format(kg)} kg` : `${reps} rep.`;
+  return `${nf1.format(kg)} kg × ${reps}`;
+}
+
 function suggestionText({ suggestion, planned }: WorkoutExercise): string {
+  const m = measureOf(planned.exercise);
   const kg = suggestion.weight_kg ? nf1.format(Number(suggestion.weight_kg)) : "";
+  const top = m.timed ? `${planned.reps_max} de secunde` : `${planned.reps_max} repetări`;
   switch (suggestion.kind) {
     case "first_time":
-      return `Prima dată: alege o greutate cu care poți face ${planned.reps_max} repetări cu tehnică bună.`;
+      if (m.timed) return `Prima dată: menține poziția cât poți cu tehnică bună, până la ${top}.`;
+      if (m.bodyweight) return `Prima dată: fă câte repetări poți cu tehnică bună, până la ${top}.`;
+      return `Prima dată: alege o greutate cu care poți face ${top} cu tehnică bună.`;
     case "add_weight":
-      return `Data trecută ai atins ${planned.reps_max} repetări la toate seriile. Încearcă ${kg} kg.`;
+      return `Data trecută ai atins ${top} la toate seriile. Încearcă ${kg} kg.`;
     case "add_reps":
-      return `Rămâi la ${kg} kg și încearcă o repetare în plus pe serie.`;
+      if (m.timed) return "Încearcă să menții poziția câteva secunde în plus pe serie.";
+      return m.bodyweight || Number(suggestion.weight_kg) === 0
+        ? "Încearcă o repetare în plus pe serie."
+        : `Rămâi la ${kg} kg și încearcă o repetare în plus pe serie.`;
+    case "max_reached":
+      return m.timed
+        ? `Ai atins ${top}. Poți trece la o variantă mai grea (de ex. cu un picior ridicat).`
+        : `Ai atins ${top} la toate seriile. Poți adăuga greutate (centură/vestă) sau o variantă mai grea.`;
   }
 }
 
@@ -36,12 +63,14 @@ const numberInput =
 
 /** Weight + reps inputs, used both for adding and editing a set. */
 function SetForm({
+  measure,
   initialWeight,
   initialReps,
   submitLabel,
   onSubmit,
   onCancel,
 }: {
+  measure: Measure;
   initialWeight: string;
   initialReps: string;
   submitLabel: string;
@@ -67,29 +96,35 @@ function SetForm({
 
   return (
     <form onSubmit={handle} className="flex flex-col gap-2">
-      <div className="grid grid-cols-[1fr_1fr_auto] items-end gap-2">
+      <div
+        className={`grid items-end gap-2 ${measure.timed ? "grid-cols-[1fr_auto]" : "grid-cols-[1fr_1fr_auto]"}`}
+      >
+        {measure.timed ? (
+          <input type="hidden" name="weight" value="0" />
+        ) : (
+          <label className="text-muted flex flex-col gap-1 text-xs font-semibold">
+            {measure.bodyweight ? "Greutate extra (kg)" : "Greutate (kg)"}
+            <input
+              name="weight"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              max={500}
+              step={0.25}
+              required
+              defaultValue={initialWeight}
+              className={numberInput}
+            />
+          </label>
+        )}
         <label className="text-muted flex flex-col gap-1 text-xs font-semibold">
-          Greutate (kg)
-          <input
-            name="weight"
-            type="number"
-            inputMode="decimal"
-            min={0}
-            max={500}
-            step={0.25}
-            required
-            defaultValue={initialWeight}
-            className={numberInput}
-          />
-        </label>
-        <label className="text-muted flex flex-col gap-1 text-xs font-semibold">
-          Repetări
+          {measure.timed ? "Secunde" : "Repetări"}
           <input
             name="reps"
             type="number"
             inputMode="numeric"
             min={1}
-            max={100}
+            max={300}
             step={1}
             required
             defaultValue={initialReps}
@@ -114,12 +149,13 @@ function SetForm({
   );
 }
 
-function SetRow({ set, onChange }: { set: SetLog; onChange: () => void }) {
+function SetRow({ set, measure, onChange }: { set: SetLog; measure: Measure; onChange: () => void }) {
   const [editing, setEditing] = useState(false);
   if (editing) {
     return (
       <li>
         <SetForm
+          measure={measure}
           initialWeight={set.weight_kg}
           initialReps={String(set.reps)}
           submitLabel="Salvează"
@@ -136,7 +172,7 @@ function SetRow({ set, onChange }: { set: SetLog; onChange: () => void }) {
   return (
     <li className="bg-surface-2 flex min-h-12 items-center justify-between gap-2 rounded-xl px-3">
       <span className="font-bold">
-        Seria {set.set_number}: {nf1.format(Number(set.weight_kg))} kg × {set.reps}
+        Seria {set.set_number}: {setText(set.weight_kg, set.reps, measure)}
       </span>
       <span className="flex gap-1">
         <button
@@ -173,8 +209,13 @@ function ExerciseCard({
   onChange: () => void;
 }) {
   const { planned, sets, last_sets: last } = item;
+  const measure = measureOf(planned.exercise);
   const lastSet = sets.at(-1);
-  const defaultWeight = lastSet?.weight_kg ?? item.suggestion.weight_kg ?? last.at(-1)?.weight_kg ?? "";
+  const defaultWeight =
+    lastSet?.weight_kg ??
+    item.suggestion.weight_kg ??
+    last.at(-1)?.weight_kg ??
+    (measure.bodyweight ? "0" : "");
   const defaultReps = String(lastSet?.reps ?? planned.reps_min);
   const done = sets.length >= planned.sets;
 
@@ -189,24 +230,25 @@ function ExerciseCard({
         </span>
       </div>
       <p className="text-muted text-sm">
-        {planned.sets} × {repRange(planned.reps_min, planned.reps_max)} repetări · pauză{" "}
-        {planned.rest_seconds} s
+        {planned.sets} × {repRange(planned.reps_min, planned.reps_max)}{" "}
+        {measure.timed ? "secunde" : "repetări"} · pauză {planned.rest_seconds} s
       </p>
       {last.length > 0 && (
         <p className="text-muted text-sm">
-          Data trecută: {last.map((s) => `${nf1.format(Number(s.weight_kg))}×${s.reps}`).join(", ")}
+          Data trecută: {last.map((s) => setText(s.weight_kg, s.reps, measure)).join(", ")}
         </p>
       )}
       <p className="border-border rounded-xl border p-3 text-sm">{suggestionText(item)}</p>
       {sets.length > 0 && (
         <ol className="flex flex-col gap-2">
           {sets.map((s) => (
-            <SetRow key={s.id} set={s} onChange={onChange} />
+            <SetRow key={s.id} set={s} measure={measure} onChange={onChange} />
           ))}
         </ol>
       )}
       <SetForm
         key={sets.length}
+        measure={measure}
         initialWeight={defaultWeight}
         initialReps={defaultReps}
         submitLabel="+ Serie"

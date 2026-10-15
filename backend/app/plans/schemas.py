@@ -1,8 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, computed_field
 
-from app.plans.models import Pattern, Template
+from app.plans.models import Pattern, RepScheme, Template
 from app.profile.models import Experience, Goal
 
 
@@ -14,11 +14,18 @@ class ExerciseOut(BaseModel):
     name: str
     description: str
     pattern: Pattern
+    rep_scheme: RepScheme
     primary_muscle: str
     secondary_muscles: list[str]
     equipment: str
     difficulty: Experience
     is_compound: bool
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def unit(self) -> str:
+        """What the reps numbers mean: repetitions or seconds held."""
+        return "seconds" if self.rep_scheme is RepScheme.TIMED else "reps"
 
 
 class PlanExerciseOut(BaseModel):

@@ -1,15 +1,17 @@
 """Curated exercise library. Descriptions are original text written for FitPlan.
 
-Tuple: (slug, name, pattern, primary muscle, secondary muscles, equipment, difficulty,
-is_compound, description).
+Names are the usual English gym names; descriptions are in Romanian.
+
+Tuple: (slug, name, pattern, rep scheme, primary muscle, secondary muscles, equipment,
+difficulty, is_compound, description). Rep schemes are defined in app/plans/constants.py.
 """
 
-EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
-    # --- squat ------------------------------------------------------------------------------
+EXERCISES: list[tuple[str, str, str, str, str, list[str], str, str, bool, str]] = [
     (
         "leg-press",
-        "Presă pentru picioare",
+        "Leg Press",
         "squat",
+        "compound",
         "quads",
         ["glutes"],
         "machine",
@@ -19,8 +21,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "goblet-squat",
-        "Genuflexiune goblet",
+        "Goblet Squat",
         "squat",
+        "compound",
         "quads",
         ["glutes", "core"],
         "dumbbell",
@@ -30,8 +33,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "smith-squat",
-        "Genuflexiune la aparatul Smith",
+        "Smith Machine Squat",
         "squat",
+        "compound",
         "quads",
         ["glutes"],
         "machine",
@@ -41,8 +45,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "hack-squat",
-        "Hack squat la aparat",
+        "Hack Squat",
         "squat",
+        "compound",
         "quads",
         ["glutes"],
         "machine",
@@ -52,8 +57,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "back-squat",
-        "Genuflexiune cu bara pe spate",
+        "Barbell Back Squat",
         "squat",
+        "strength",
         "quads",
         ["glutes", "core"],
         "barbell",
@@ -63,8 +69,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "front-squat",
-        "Genuflexiune cu bara în față",
+        "Barbell Front Squat",
         "squat",
+        "strength",
         "quads",
         ["core", "glutes"],
         "barbell",
@@ -72,11 +79,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Bara se sprijină pe umerii din față, coatele sus. Trunchiul rămâne aproape vertical pe toată mișcarea; coboară adânc doar cât poți ține coatele ridicate.",
     ),
-    # --- hinge ------------------------------------------------------------------------------
     (
         "dumbbell-romanian-deadlift",
-        "Îndreptări românești cu gantere",
+        "Dumbbell Romanian Deadlift",
         "hinge",
+        "compound",
         "hamstrings",
         ["glutes"],
         "dumbbell",
@@ -86,8 +93,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "back-extension",
-        "Extensii lombare la banca de 45°",
+        "45° Back Extension",
         "hinge",
+        "isolation",
         "glutes",
         ["hamstrings"],
         "bodyweight",
@@ -97,8 +105,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-pull-through",
-        "Pull-through la cablu",
+        "Cable Pull-Through",
         "hinge",
+        "compound",
         "glutes",
         ["hamstrings"],
         "cable",
@@ -108,8 +117,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "barbell-romanian-deadlift",
-        "Îndreptări românești cu bara",
+        "Barbell Romanian Deadlift",
         "hinge",
+        "strength",
         "hamstrings",
         ["glutes", "back"],
         "barbell",
@@ -119,8 +129,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "deadlift",
-        "Îndreptări clasice",
+        "Conventional Deadlift",
         "hinge",
+        "strength",
         "back",
         ["hamstrings", "glutes", "core"],
         "barbell",
@@ -130,8 +141,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "good-morning",
-        "Good morning cu bara",
+        "Barbell Good Morning",
         "hinge",
+        "strength",
         "hamstrings",
         ["glutes", "back"],
         "barbell",
@@ -139,11 +151,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Bara pe spate ca la genuflexiune, genunchii ușor flexați. Apleacă trunchiul ducând șoldurile înapoi, cu spatele drept, și revino controlat. Folosește greutăți mici.",
     ),
-    # --- lunge ------------------------------------------------------------------------------
     (
         "reverse-lunge",
-        "Fandări înapoi cu gantere",
+        "Dumbbell Reverse Lunge",
         "lunge",
+        "compound",
         "quads",
         ["glutes"],
         "dumbbell",
@@ -153,8 +165,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "step-up",
-        "Urcări pe bancă",
+        "Dumbbell Step-Up",
         "lunge",
+        "compound",
         "quads",
         ["glutes"],
         "dumbbell",
@@ -164,8 +177,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "smith-split-squat",
-        "Fandare statică la Smith",
+        "Smith Machine Split Squat",
         "lunge",
+        "compound",
         "quads",
         ["glutes"],
         "machine",
@@ -175,8 +189,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "walking-lunge",
-        "Fandări mers cu gantere",
+        "Dumbbell Walking Lunge",
         "lunge",
+        "compound",
         "quads",
         ["glutes", "core"],
         "dumbbell",
@@ -186,8 +201,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "bulgarian-split-squat",
-        "Fandare bulgărească",
+        "Bulgarian Split Squat",
         "lunge",
+        "compound",
         "quads",
         ["glutes"],
         "dumbbell",
@@ -195,11 +211,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Laba piciorului din spate pe o bancă, piciorul din față suficient de departe. Coboară vertical, cu genunchiul din față stabil, și urcă prin călcâi.",
     ),
-    # --- horizontal push --------------------------------------------------------------------
     (
         "machine-chest-press",
-        "Împins la aparat pentru piept",
+        "Machine Chest Press",
         "horizontal_push",
+        "compound",
         "chest",
         ["triceps", "shoulders"],
         "machine",
@@ -209,8 +225,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "dumbbell-bench-press",
-        "Împins cu gantere pe bancă orizontală",
+        "Dumbbell Bench Press",
         "horizontal_push",
+        "compound",
         "chest",
         ["triceps", "shoulders"],
         "dumbbell",
@@ -220,8 +237,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "incline-dumbbell-press",
-        "Împins cu gantere pe bancă înclinată",
+        "Incline Dumbbell Press",
         "horizontal_push",
+        "compound",
         "chest",
         ["shoulders", "triceps"],
         "dumbbell",
@@ -231,8 +249,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "push-up",
-        "Flotări",
+        "Push-Up",
         "horizontal_push",
+        "compound",
         "chest",
         ["triceps", "core"],
         "bodyweight",
@@ -242,8 +261,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "barbell-bench-press",
-        "Împins cu bara pe bancă orizontală",
+        "Barbell Bench Press",
         "horizontal_push",
+        "strength",
         "chest",
         ["triceps", "shoulders"],
         "barbell",
@@ -253,8 +273,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "incline-barbell-press",
-        "Împins cu bara pe bancă înclinată",
+        "Incline Barbell Bench Press",
         "horizontal_push",
+        "strength",
         "chest",
         ["shoulders", "triceps"],
         "barbell",
@@ -264,8 +285,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "chest-dip",
-        "Dips pentru piept",
+        "Chest Dip",
         "horizontal_push",
+        "bodyweight_hard",
         "chest",
         ["triceps", "shoulders"],
         "bodyweight",
@@ -273,11 +295,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "La paralele, apleacă ușor trunchiul înainte și coboară până la o adâncime confortabilă pentru umeri. Împinge înapoi până aproape de extensia brațelor.",
     ),
-    # --- vertical push ----------------------------------------------------------------------
     (
         "machine-shoulder-press",
-        "Împins deasupra capului la aparat",
+        "Machine Shoulder Press",
         "vertical_push",
+        "compound",
         "shoulders",
         ["triceps"],
         "machine",
@@ -287,8 +309,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "seated-dumbbell-press",
-        "Împins cu gantere din șezut",
+        "Seated Dumbbell Shoulder Press",
         "vertical_push",
+        "compound",
         "shoulders",
         ["triceps"],
         "dumbbell",
@@ -298,8 +321,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "arnold-press",
-        "Împins Arnold",
+        "Arnold Press",
         "vertical_push",
+        "compound",
         "shoulders",
         ["triceps"],
         "dumbbell",
@@ -309,8 +333,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "overhead-press",
-        "Împins cu bara din picioare",
+        "Barbell Overhead Press",
         "vertical_push",
+        "strength",
         "shoulders",
         ["triceps", "core"],
         "barbell",
@@ -318,11 +343,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Bara pe partea din față a umerilor, fesierii și abdomenul încordate. Împinge bara vertical, mutând capul ușor înapoi pentru a-i face loc, apoi sub bară la final.",
     ),
-    # --- horizontal pull --------------------------------------------------------------------
     (
         "seated-cable-row",
-        "Ramat la cablu din șezut",
+        "Seated Cable Row",
         "horizontal_pull",
+        "compound",
         "back",
         ["biceps"],
         "cable",
@@ -332,8 +357,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "chest-supported-row",
-        "Ramat la aparat cu sprijin pe piept",
+        "Chest-Supported Machine Row",
         "horizontal_pull",
+        "compound",
         "back",
         ["biceps"],
         "machine",
@@ -343,8 +369,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "one-arm-dumbbell-row",
-        "Ramat cu o gantera",
+        "One-Arm Dumbbell Row",
         "horizontal_pull",
+        "compound",
         "back",
         ["biceps"],
         "dumbbell",
@@ -354,8 +381,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "barbell-row",
-        "Ramat cu bara",
+        "Barbell Bent-Over Row",
         "horizontal_pull",
+        "strength",
         "back",
         ["biceps", "hamstrings"],
         "barbell",
@@ -365,8 +393,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "inverted-row",
-        "Ramat inversat",
+        "Inverted Row",
         "horizontal_pull",
+        "bodyweight_hard",
         "back",
         ["biceps", "core"],
         "bodyweight",
@@ -376,8 +405,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "pendlay-row",
-        "Ramat Pendlay",
+        "Pendlay Row",
         "horizontal_pull",
+        "strength",
         "back",
         ["biceps"],
         "barbell",
@@ -385,11 +415,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Trunchiul aproape paralel cu solul, bara pornește de jos la fiecare repetare. Trage exploziv spre abdomen și las-o înapoi pe sol controlat.",
     ),
-    # --- vertical pull ----------------------------------------------------------------------
     (
         "lat-pulldown",
-        "Tracțiuni la helcometru",
+        "Lat Pulldown",
         "vertical_pull",
+        "compound",
         "back",
         ["biceps"],
         "cable",
@@ -399,8 +429,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "neutral-grip-pulldown",
-        "Tracțiuni la helcometru cu priză neutră",
+        "Neutral-Grip Lat Pulldown",
         "vertical_pull",
+        "compound",
         "back",
         ["biceps"],
         "cable",
@@ -410,8 +441,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "assisted-pull-up",
-        "Tracțiuni asistate la aparat",
+        "Assisted Pull-Up (Machine)",
         "vertical_pull",
+        "compound",
         "back",
         ["biceps"],
         "machine",
@@ -421,8 +453,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "pull-up",
-        "Tracțiuni la bară",
+        "Pull-Up",
         "vertical_pull",
+        "bodyweight_hard",
         "back",
         ["biceps", "core"],
         "bodyweight",
@@ -432,8 +465,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "chin-up",
-        "Tracțiuni cu priză supinată",
+        "Chin-Up",
         "vertical_pull",
+        "bodyweight_hard",
         "back",
         ["biceps"],
         "bodyweight",
@@ -443,8 +477,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "weighted-pull-up",
-        "Tracțiuni cu greutate suplimentară",
+        "Weighted Pull-Up",
         "vertical_pull",
+        "strength",
         "back",
         ["biceps", "core"],
         "bodyweight",
@@ -452,11 +487,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Ca tracțiunile clasice, cu o greutate prinsă de centură. Adaugă greutate doar când poți executa curat mai multe repetări fără ea.",
     ),
-    # --- chest isolation --------------------------------------------------------------------
     (
         "pec-deck",
-        "Fluturări la aparat",
+        "Pec Deck Fly",
         "chest_isolation",
+        "isolation",
         "chest",
         ["shoulders"],
         "machine",
@@ -466,8 +501,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-crossover",
-        "Fluturări la cablu",
+        "Cable Crossover",
         "chest_isolation",
+        "isolation",
         "chest",
         ["shoulders"],
         "cable",
@@ -477,8 +513,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "dumbbell-fly",
-        "Fluturări cu gantere",
+        "Dumbbell Fly",
         "chest_isolation",
+        "isolation",
         "chest",
         ["shoulders"],
         "dumbbell",
@@ -486,11 +523,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         False,
         "Întins pe bancă, deschide brațele lateral cu coatele ușor flexate, până la o întindere moderată, apoi adu ganterele înapoi deasupra pieptului.",
     ),
-    # --- shoulder isolation -----------------------------------------------------------------
     (
         "lateral-raise",
-        "Ridicări laterale cu gantere",
+        "Dumbbell Lateral Raise",
         "shoulder_isolation",
+        "isolation",
         "shoulders",
         [],
         "dumbbell",
@@ -500,8 +537,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "rear-delt-machine",
-        "Fluturări inverse la aparat",
+        "Reverse Pec Deck (Rear Delt)",
         "shoulder_isolation",
+        "isolation",
         "shoulders",
         ["back"],
         "machine",
@@ -511,8 +549,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "face-pull",
-        "Face pull la cablu",
+        "Cable Face Pull",
         "shoulder_isolation",
+        "isolation",
         "shoulders",
         ["back"],
         "cable",
@@ -522,8 +561,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-lateral-raise",
-        "Ridicare laterală la cablu",
+        "Cable Lateral Raise",
         "shoulder_isolation",
+        "isolation",
         "shoulders",
         [],
         "cable",
@@ -531,11 +571,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         False,
         "Cu scripetele jos și mânerul în mâna opusă, ridică brațul lateral până la nivelul umărului. Tensiunea cablului rămâne constantă pe toată mișcarea.",
     ),
-    # --- biceps -----------------------------------------------------------------------------
     (
         "dumbbell-curl",
-        "Flexii cu gantere",
+        "Dumbbell Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "dumbbell",
@@ -545,8 +585,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "barbell-curl",
-        "Flexii cu bara",
+        "Barbell Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "barbell",
@@ -556,8 +597,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "hammer-curl",
-        "Flexii ciocan",
+        "Hammer Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "dumbbell",
@@ -567,8 +609,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-curl",
-        "Flexii la cablu",
+        "Cable Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "cable",
@@ -578,8 +621,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "machine-preacher-curl",
-        "Flexii la aparat Scott",
+        "Machine Preacher Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "machine",
@@ -589,8 +633,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "incline-dumbbell-curl",
-        "Flexii cu gantere pe bancă înclinată",
+        "Incline Dumbbell Curl",
         "biceps",
+        "isolation",
         "biceps",
         [],
         "dumbbell",
@@ -598,11 +643,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         False,
         "Pe o bancă înclinată, cu brațele atârnând în spatele trunchiului, flexează ganterele fără să aduci coatele înainte.",
     ),
-    # --- triceps ----------------------------------------------------------------------------
     (
         "cable-pushdown",
-        "Extensii la scripete",
+        "Cable Triceps Pushdown",
         "triceps",
+        "isolation",
         "triceps",
         [],
         "cable",
@@ -612,8 +657,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "dumbbell-overhead-extension",
-        "Extensii deasupra capului cu gantera",
+        "Dumbbell Overhead Triceps Extension",
         "triceps",
+        "isolation",
         "triceps",
         [],
         "dumbbell",
@@ -623,8 +669,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "bench-dip",
-        "Dips pe bancă",
+        "Bench Dip",
         "triceps",
+        "isolation",
         "triceps",
         ["chest"],
         "bodyweight",
@@ -634,8 +681,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "overhead-cable-extension",
-        "Extensii la cablu deasupra capului",
+        "Overhead Cable Triceps Extension",
         "triceps",
+        "isolation",
         "triceps",
         [],
         "cable",
@@ -645,8 +693,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "skull-crusher",
-        "Extensii franceze cu bara EZ",
+        "EZ-Bar Skull Crusher",
         "triceps",
+        "isolation",
         "triceps",
         [],
         "barbell",
@@ -656,8 +705,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "close-grip-bench-press",
-        "Împins cu priză îngustă",
+        "Close-Grip Bench Press",
         "triceps",
+        "strength",
         "triceps",
         ["chest"],
         "barbell",
@@ -665,11 +715,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Pe bancă, cu mâinile la lățimea umerilor, coboară bara spre partea de jos a pieptului cu coatele aproape de corp și împinge înapoi.",
     ),
-    # --- quads / hamstrings / glutes isolation ----------------------------------------------
     (
         "leg-extension",
-        "Extensii pentru cvadriceps",
+        "Leg Extension",
         "quad_isolation",
+        "isolation",
         "quads",
         [],
         "machine",
@@ -679,8 +729,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "lying-leg-curl",
-        "Flexii femurale din culcat",
+        "Lying Leg Curl",
         "hamstring_isolation",
+        "isolation",
         "hamstrings",
         [],
         "machine",
@@ -690,8 +741,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "seated-leg-curl",
-        "Flexii femurale din șezut",
+        "Seated Leg Curl",
         "hamstring_isolation",
+        "isolation",
         "hamstrings",
         [],
         "machine",
@@ -701,8 +753,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "nordic-curl",
-        "Flexii nordice",
+        "Nordic Hamstring Curl",
         "hamstring_isolation",
+        "bodyweight_hard",
         "hamstrings",
         ["glutes"],
         "bodyweight",
@@ -712,8 +765,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "glute-bridge",
-        "Pod pentru fesieri",
+        "Glute Bridge",
         "glute_isolation",
+        "isolation",
         "glutes",
         ["hamstrings"],
         "bodyweight",
@@ -723,8 +777,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-kickback",
-        "Extensii de șold la cablu",
+        "Cable Glute Kickback",
         "glute_isolation",
+        "isolation",
         "glutes",
         [],
         "cable",
@@ -734,8 +789,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "hip-abduction-machine",
-        "Abducții la aparat",
+        "Hip Abduction Machine",
         "glute_isolation",
+        "isolation",
         "glutes",
         [],
         "machine",
@@ -745,8 +801,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "barbell-hip-thrust",
-        "Hip thrust cu bara",
+        "Barbell Hip Thrust",
         "glute_isolation",
+        "strength",
         "glutes",
         ["hamstrings"],
         "barbell",
@@ -754,10 +811,10 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         True,
         "Cu omoplații pe bancă și bara protejată de un burete pe șolduri, ridică șoldurile până la linia orizontală, cu bărbia ușor în piept.",
     ),
-    # --- calves -----------------------------------------------------------------------------
     (
         "standing-calf-raise",
-        "Ridicări pe vârfuri din picioare",
+        "Standing Calf Raise",
+        "calves",
         "calves",
         "calves",
         [],
@@ -768,7 +825,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "seated-calf-raise",
-        "Ridicări pe vârfuri din șezut",
+        "Seated Calf Raise",
+        "calves",
         "calves",
         "calves",
         [],
@@ -779,7 +837,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "leg-press-calf-raise",
-        "Ridicări pe vârfuri la presă",
+        "Leg Press Calf Raise",
+        "calves",
         "calves",
         "calves",
         [],
@@ -788,11 +847,11 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
         False,
         "Pe presa de picioare, doar vârfurile pe marginea platformei. Împinge cu vârfurile cu genunchii întinși dar neblocați.",
     ),
-    # --- core -------------------------------------------------------------------------------
     (
         "plank",
-        "Planșă",
+        "Plank",
         "core",
+        "timed",
         "core",
         [],
         "bodyweight",
@@ -802,7 +861,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "dead-bug",
-        "Dead bug",
+        "Dead Bug",
+        "core",
         "core",
         "core",
         [],
@@ -813,7 +873,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "pallof-press",
-        "Pallof press",
+        "Pallof Press",
+        "core",
         "core",
         "core",
         [],
@@ -824,7 +885,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "cable-crunch",
-        "Abdomene la scripete",
+        "Cable Crunch",
+        "core",
         "core",
         "core",
         [],
@@ -835,7 +897,8 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "hanging-knee-raise",
-        "Ridicări de genunchi din atârnat",
+        "Hanging Knee Raise",
+        "core",
         "core",
         "core",
         [],
@@ -846,8 +909,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "hanging-leg-raise",
-        "Ridicări de picioare din atârnat",
+        "Hanging Leg Raise",
         "core",
+        "bodyweight_hard",
         "core",
         [],
         "bodyweight",
@@ -857,8 +921,9 @@ EXERCISES: list[tuple[str, str, str, str, list[str], str, str, bool, str]] = [
     ),
     (
         "ab-wheel-rollout",
-        "Rotiță pentru abdomen",
+        "Ab Wheel Rollout",
         "core",
+        "bodyweight_hard",
         "core",
         ["shoulders"],
         "bodyweight",

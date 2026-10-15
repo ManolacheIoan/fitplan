@@ -3,8 +3,8 @@ from collections import Counter
 import pytest
 
 from app.plans import constants as c
-from app.plans.generator import generate, resolve_template
-from app.plans.models import Exercise, Pattern, Template
+from app.plans.generator import generate, prescription, resolve_template
+from app.plans.models import Exercise, Pattern, RepScheme, Template
 from app.profile.models import Experience, Goal, Program
 from seed.exercises import EXERCISES
 
@@ -18,7 +18,8 @@ def library() -> list[Exercise]:
             id=i,
             slug=slug,
             name=name,
-            pattern=pattern,
+            pattern=Pattern(pattern),
+            rep_scheme=RepScheme(scheme),
             primary_muscle=primary,
             secondary_muscles=secondary,
             equipment=equipment,
@@ -30,6 +31,7 @@ def library() -> list[Exercise]:
             slug,
             name,
             pattern,
+            scheme,
             primary,
             secondary,
             equipment,
@@ -108,9 +110,9 @@ def test_sets_reps_rest_follow_goal_and_experience(library, goal):
         plan = generate(library, auto(4), 4, goal, experience)
         for day in plan.days:
             for p in day.exercises:
-                role = "compound" if p.exercise.is_compound else "isolation"
-                sets, reps_min, reps_max, rest = c.PRESCRIPTION[goal][role]
-                if p.exercise.is_compound:
+                scheme = p.exercise.rep_scheme
+                sets, reps_min, reps_max, rest = c.PRESCRIPTION[scheme][goal]
+                if scheme in c.SET_ADJUSTED_SCHEMES:
                     sets = max(c.MIN_SETS, sets + c.SET_ADJUSTMENT[experience])
                 assert (p.sets, p.reps_min, p.reps_max, p.rest_seconds) == (
                     sets,
@@ -140,3 +142,21 @@ def test_weekly_volume_is_balanced_between_push_and_pull(library):
     push = patterns[Pattern.HORIZONTAL_PUSH] + patterns[Pattern.VERTICAL_PUSH]
     pull = patterns[Pattern.HORIZONTAL_PULL] + patterns[Pattern.VERTICAL_PULL]
     assert push == pull
+
+
+def test_every_rep_scheme_has_a_prescription_for_every_goal():
+    for scheme in RepScheme:
+        for goal in Goal:
+            sets, reps_min, reps_max, rest = c.PRESCRIPTION[scheme][goal]
+            assert 1 <= sets <= 10 and 1 <= reps_min <= reps_max <= 120 and 30 <= rest <= 300
+
+
+def test_rep_schemes_are_specific_to_the_exercise(library):
+    by_slug = {e.slug: e for e in library}
+    squat = prescription(by_slug["back-squat"], Goal.GAIN, Experience.INTERMEDIATE)
+    curl = prescription(by_slug["dumbbell-curl"], Goal.GAIN, Experience.INTERMEDIATE)
+    plank = prescription(by_slug["plank"], Goal.GAIN, Experience.INTERMEDIATE)
+    nordic = prescription(by_slug["nordic-curl"], Goal.GAIN, Experience.INTERMEDIATE)
+    assert squat.reps_max < curl.reps_max and squat.rest_seconds > curl.rest_seconds
+    assert (plank.reps_min, plank.reps_max) == (20, 45)  # seconds
+    assert nordic.reps_max <= 10
