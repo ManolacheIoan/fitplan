@@ -63,3 +63,7 @@ class PlanSummaryOut(BaseModel):
 
 class PlanOut(PlanSummaryOut):
     days: list[PlanDayOut]
+
+
+class PlanExerciseSwapIn(BaseModel):
+    exercise_id: int

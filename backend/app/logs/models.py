@@ -94,3 +94,17 @@ class WeightLog(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     logged_on: Mapped[date] = mapped_column(Date)
     weight_kg: Mapped[Decimal] = mapped_column(Numeric(4, 1))
+
+
+class WorkoutSwap(Base):
+    """An exercise replaced for one workout session only (the plan stays unchanged)."""
+
+    __tablename__ = "workout_swaps"
+    __table_args__ = (UniqueConstraint("session_id", "plan_exercise_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    session_id: Mapped[int] = mapped_column(ForeignKey("workout_sessions.id", ondelete="CASCADE"))
+    plan_exercise_id: Mapped[int] = mapped_column(
+        ForeignKey("plan_exercises.id", ondelete="CASCADE"), index=True
+    )
+    exercise_id: Mapped[int] = mapped_column(ForeignKey("exercises.id"), index=True)

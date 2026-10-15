@@ -12,8 +12,9 @@ from sqlalchemy import Date, Numeric, cast, delete, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.common.errors import DomainError
 from app.config import get_settings
-from app.logs.models import MealLog, SetLog, WeightLog, WorkoutSession
+from app.logs.models import MealLog, SetLog, WeightLog, WorkoutSession, WorkoutSwap
 from app.logs.schemas import (
     DayMealsOut,
     LastSetOut,
@@ -34,10 +35,10 @@ from app.logs.schemas import (
 from app.nutrition import service as nutrition_service
 from app.nutrition.models import Food
 from app.nutrition.schemas import TargetsOut
-from app.plans import progression
+from app.plans import generator, progression
 from app.plans import service as plans_service
-from app.plans.models import Plan, PlanDay, PlanExercise
-from app.plans.schemas import PlanExerciseOut
+from app.plans.models import Exercise, Plan, PlanDay, PlanExercise
+from app.plans.schemas import ExerciseOut, PlanExerciseOut
 from app.profile.models import Profile
 
 TARGETS_RECOMPUTE_INTERVAL = timedelta(days=7)
@@ -45,11 +46,8 @@ WEEKLY_AVERAGE_DAYS = 7
 MAX_SETS_PER_EXERCISE = 20
 
 
-class LogError(Exception):
-    def __init__(self, code: str, status: int) -> None:
-        super().__init__(code)
-        self.code = code
-        self.status = status
+class LogError(DomainError):
+    pass
 
 
 def _not_found(what: str) -> LogError:
@@ -143,22 +141,53 @@ def _last_sets_by_exercise(
     return grouped
 
 
+def _effective(planned: PlanExercise, swapped: Exercise | None, plan: Plan) -> PlanExerciseOut:
+    """The planned exercise, or today's replacement prescribed for this plan."""
+    if swapped is None:
+        return PlanExerciseOut.model_validate(planned)
+    p = generator.prescription(swapped, plan.goal, plan.experience)
+    return PlanExerciseOut(
+        id=planned.id,
+        position=planned.position,
+        sets=p.sets,
+        reps_min=p.reps_min,
+        reps_max=p.reps_max,
+        rest_seconds=p.rest_seconds,
+        exercise=ExerciseOut.model_validate(swapped),
+    )
+
+
 def _workout_exercise(
-    planned: PlanExercise, sets: list[SetLog], last: list[SetLog]
+    planned: PlanExerciseOut,
+    exercise: Exercise,
+    sets: list[SetLog],
+    last: list[SetLog],
+    swapped_today: bool,
 ) -> WorkoutExerciseOut:
     suggestion = progression.suggest(
         [progression.LoggedSet(s.weight_kg, s.reps) for s in last],
         planned.reps_max,
-        planned.exercise.pattern,
-        planned.exercise.is_compound,
-        loadable=plans_service.is_loadable(planned.exercise),
+        exercise.pattern,
+        exercise.is_compound,
+        loadable=plans_service.is_loadable(exercise),
     )
     return WorkoutExerciseOut(
-        planned=PlanExerciseOut.model_validate(planned),
+        planned=planned,
+        swapped_today=swapped_today,
         sets=[SetOut.model_validate(s) for s in sets],
         last_sets=[LastSetOut(weight_kg=s.weight_kg, reps=s.reps) for s in last],
         suggestion=SuggestionOut(kind=suggestion.kind, weight_kg=suggestion.weight_kg),
     )
+
+
+def _swaps(db: Session, session_id: int) -> dict[int, Exercise]:
+    """plan_exercise_id -> replacement exercise, for one session (one query)."""
+    rows = db.execute(
+        select(WorkoutSwap.plan_exercise_id, Exercise)
+        .join(Exercise, Exercise.id == WorkoutSwap.exercise_id)
+        .where(WorkoutSwap.session_id == session_id)
+    )
+    return {plan_exercise_id: exercise for plan_exercise_id, exercise in rows}
 
 
 def workout_detail(db: Session, user_id: int, session_id: int) -> WorkoutOut:
@@ -168,37 +197,104 @@ def workout_detail(db: Session, user_id: int, session_id: int) -> WorkoutOut:
         .options(plans_service.DAY_EXERCISES)
         .where(PlanDay.id == session.plan_day_id)
     ).one()
+    plan = db.scalars(select(Plan).where(Plan.id == day.plan_id)).one()
+    swaps = _swaps(db, session.id)
     logged = db.scalars(
         select(SetLog).where(SetLog.session_id == session.id).order_by(SetLog.set_number)
     )
     sets_by_exercise: dict[int, list[SetLog]] = defaultdict(list)
     for s in logged:
         sets_by_exercise[s.exercise_id].append(s)
-    exercise_ids = [pe.exercise_id for pe in day.exercises]
-    last = _last_sets_by_exercise(db, user_id, exercise_ids, session.id)
+    effective = [(pe, swaps.get(pe.id, pe.exercise)) for pe in day.exercises]
+    last = _last_sets_by_exercise(db, user_id, [ex.id for _, ex in effective], session.id)
+    exercises = [
+        _workout_exercise(
+            _effective(pe, swaps.get(pe.id), plan),
+            ex,
+            sets_by_exercise[ex.id],
+            last.get(ex.id, []),
+            swapped_today=pe.id in swaps,
+        )
+        for pe, ex in effective
+    ]
     return WorkoutOut(
         id=session.id,
         day=WorkoutDayOut(id=day.id, position=day.position, name=day.name),
         started_at=session.started_at,
         finished_at=session.finished_at,
-        exercises=[
-            _workout_exercise(pe, sets_by_exercise[pe.exercise_id], last.get(pe.exercise_id, []))
-            for pe in day.exercises
-        ],
+        exercises=exercises,
     )
+
+
+def _allowed_exercise_ids(db: Session, session: WorkoutSession) -> set[int]:
+    planned = db.scalars(
+        select(PlanExercise.exercise_id).where(PlanExercise.plan_day_id == session.plan_day_id)
+    )
+    return set(planned) | {e.id for e in _swaps(db, session.id).values()}
+
+
+def has_sets_in_open_session(db: Session, user_id: int, plan_exercise_id: int) -> bool:
+    """Whether the unfinished session already has sets for this plan exercise's exercise."""
+    open_session = _open_session(db, user_id)
+    if open_session is None:
+        return False
+    planned = db.get(PlanExercise, plan_exercise_id)
+    if planned is None or planned.plan_day_id != open_session.plan_day_id:
+        return False
+    exercise = _swaps(db, open_session.id).get(planned.id, planned.exercise)
+    count = db.scalar(
+        select(func.count()).where(
+            SetLog.session_id == open_session.id, SetLog.exercise_id == exercise.id
+        )
+    )
+    return bool(count)
+
+
+def swap_for_session(
+    db: Session, user_id: int, session_id: int, plan_exercise_id: int, exercise_id: int
+) -> None:
+    """Replace an exercise for this session only. Choosing the planned one undoes it."""
+    session = _own_session(db, user_id, session_id)
+    if session.finished_at is not None:
+        raise LogError("workout_finished", 409)
+    planned = db.scalar(
+        select(PlanExercise).where(
+            PlanExercise.id == plan_exercise_id,
+            PlanExercise.plan_day_id == session.plan_day_id,
+        )
+    )
+    if planned is None:
+        raise _not_found("plan_exercise")
+    current = _swaps(db, session.id).get(planned.id, planned.exercise)
+    if db.scalar(
+        select(func.count()).where(
+            SetLog.session_id == session.id, SetLog.exercise_id == current.id
+        )
+    ):
+        raise LogError("sets_already_logged", 409)
+    db.execute(
+        delete(WorkoutSwap).where(
+            WorkoutSwap.session_id == session.id, WorkoutSwap.plan_exercise_id == planned.id
+        )
+    )
+    if exercise_id != planned.exercise_id:
+        plan = db.scalars(
+            select(Plan)
+            .join(PlanDay, PlanDay.plan_id == Plan.id)
+            .where(PlanDay.id == planned.plan_day_id)
+        ).one()
+        plans_service.check_alternative(db, planned, plan, exercise_id)
+        db.add(
+            WorkoutSwap(session_id=session.id, plan_exercise_id=planned.id, exercise_id=exercise_id)
+        )
+    db.commit()
 
 
 def add_set(
     db: Session, user_id: int, session_id: int, exercise_id: int, weight_kg: Decimal, reps: int
 ) -> SetLog:
     session = _own_session(db, user_id, session_id)
-    in_day = db.scalar(
-        select(PlanExercise.id).where(
-            PlanExercise.plan_day_id == session.plan_day_id,
-            PlanExercise.exercise_id == exercise_id,
-        )
-    )
-    if in_day is None:
+    if exercise_id not in _allowed_exercise_ids(db, session):
         raise LogError("exercise_not_in_workout", 422)
     count = db.scalar(
         select(func.count()).where(
@@ -513,6 +609,10 @@ def export(db: Session, user_id: int) -> dict[str, Any]:
                 "started_at": w.started_at.isoformat(),
                 "finished_at": w.finished_at.isoformat() if w.finished_at else None,
                 "sets": sets_by_session[w.id],
+                "swaps": [
+                    {"plan_exercise_id": pe_id, "exercise_id": ex.id}
+                    for pe_id, ex in _swaps(db, w.id).items()
+                ],
             }
             for w in sessions
         ],

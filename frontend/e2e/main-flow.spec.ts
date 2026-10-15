@@ -54,6 +54,10 @@ test("register → onboarding → plan → log workout → log food → progress
   await firstExercise.getByLabel("Repetări").fill("10");
   await firstExercise.getByRole("button", { name: "+ Serie" }).click();
   await expect(page.getByText("Seria 1: 20 kg × 10")).toBeVisible();
+  // Replace the second exercise for today only.
+  await page.getByRole("button", { name: "Înlocuiește exercițiul" }).first().click();
+  await page.getByRole("button", { name: "Doar azi" }).first().click();
+  await expect(page.getByText("· înlocuit azi")).toBeVisible();
   await page.getByRole("button", { name: "Termină antrenamentul" }).click();
   await expect(page).toHaveURL(/\/antrenament\/istoric/);
   await expect(page.getByText(/1 serii · 200 kg volum/)).toBeVisible();
