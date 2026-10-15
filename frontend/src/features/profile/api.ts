@@ -26,7 +26,7 @@ export type Profile = ProfileInput & {
 };
 
 export type ScreeningAnswers = {
-  pregnant_or_breastfeeding: boolean;
+  pregnant_or_breastfeeding?: boolean; // asked only for female sex
   diagnosed_medical_condition: boolean;
   eating_disorder_history: boolean;
   current_injury: boolean;
