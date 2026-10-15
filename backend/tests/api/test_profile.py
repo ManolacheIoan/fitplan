@@ -94,3 +94,18 @@ def test_profile_in_export(make_user):
     c = make_user()
     onboard(c)
     assert c.get(f"{API}/account/export").json()["profile"]["display_name"] == "Ana"
+
+
+def test_pregnancy_question_only_applies_to_female(make_user):
+    male = make_user()
+    male.put(f"{API}/profile", json=profile_payload(sex="male"))
+    answers = {k: v for k, v in NO_RISK.items() if k != "pregnant_or_breastfeeding"}
+    assert male.post(f"{API}/profile/screening", json=answers).json() == {"status": "passed"}
+    # Even if a client sends it, the answer is ignored for male sex.
+    sent = {**answers, "pregnant_or_breastfeeding": True}
+    assert male.post(f"{API}/profile/screening", json=sent).json() == {"status": "passed"}
+
+    female = make_user()
+    female.put(f"{API}/profile", json=profile_payload(sex="female"))
+    r = female.post(f"{API}/profile/screening", json=answers)
+    assert r.status_code == 422 and r.json()["detail"] == "pregnancy_answer_required"

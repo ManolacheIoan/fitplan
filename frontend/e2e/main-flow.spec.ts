@@ -99,9 +99,12 @@ test("screening with a 'yes' answer shows only the professional-advice page", as
   await page.getByRole("group", { name: "Experiență" }).getByText("Avansat").click();
   await page.getByRole("button", { name: "Continuă" }).click();
 
+  await expect(page.getByText("Ești însărcinată sau alăptezi?")).toHaveCount(0);
+  await expect(page.getByRole("group")).toHaveCount(3);
   const groups = await page.getByRole("group").all();
   for (const [index, group] of groups.entries()) {
-    await group.getByText(index === 3 ? "Da" : "Nu", { exact: true }).click();
+    // Men see no pregnancy question; answer "yes" only to the last one (current injury).
+    await group.getByText(index === groups.length - 1 ? "Da" : "Nu", { exact: true }).click();
   }
   await page.getByRole("button", { name: "Trimite" }).click();
   await expect(page).toHaveURL(/\/recomandare/);

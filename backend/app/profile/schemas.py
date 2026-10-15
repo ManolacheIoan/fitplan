@@ -52,7 +52,8 @@ class ProfileOut(BaseModel):
 class ScreeningIn(BaseModel):
     """Answers are evaluated in memory and discarded; only the outcome is stored."""
 
-    pregnant_or_breastfeeding: StrictBool
+    # Asked only when the biological sex is female; required in that case (see router).
+    pregnant_or_breastfeeding: StrictBool | None = None
     diagnosed_medical_condition: StrictBool
     eating_disorder_history: StrictBool
     current_injury: StrictBool
