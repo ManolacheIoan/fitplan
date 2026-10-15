@@ -20,6 +20,7 @@ from app.logs.schemas import (
     LastSetOut,
     Macros,
     MealOut,
+    PersonalRecordOut,
     SetOut,
     SuggestionOut,
     VolumeProgressOut,
@@ -292,7 +293,8 @@ def swap_for_session(
 
 def add_set(
     db: Session, user_id: int, session_id: int, exercise_id: int, weight_kg: Decimal, reps: int
-) -> SetLog:
+) -> tuple[SetLog, bool]:
+    """Log a set; also returns whether it is a new personal record (heaviest weight)."""
     session = _own_session(db, user_id, session_id)
     if exercise_id not in _allowed_exercise_ids(db, session):
         raise LogError("exercise_not_in_workout", 422)
@@ -303,6 +305,7 @@ def add_set(
     )
     if (count or 0) >= MAX_SETS_PER_EXERCISE:
         raise LogError("too_many_sets", 422)
+    previous_best = _best_weight(db, user_id, exercise_id)
     set_log = SetLog(
         session_id=session.id,
         exercise_id=exercise_id,
@@ -312,7 +315,41 @@ def add_set(
     )
     db.add(set_log)
     db.commit()
-    return set_log
+    is_record = previous_best is not None and weight_kg > previous_best
+    return set_log, is_record
+
+
+def _best_weight(db: Session, user_id: int, exercise_id: int) -> Decimal | None:
+    """Heaviest external load logged so far for the exercise (None if never logged)."""
+    return db.scalar(
+        select(func.max(SetLog.weight_kg))
+        .join(WorkoutSession, WorkoutSession.id == SetLog.session_id)
+        .where(WorkoutSession.user_id == user_id, SetLog.exercise_id == exercise_id)
+    )
+
+
+def personal_records(db: Session, user_id: int) -> list[PersonalRecordOut]:
+    """Heaviest set per exercise (ties: more reps, then the earliest). One query."""
+    rows = db.execute(
+        select(SetLog.exercise_id, Exercise.name, SetLog.weight_kg, SetLog.reps, SetLog.created_at)
+        .join(WorkoutSession, WorkoutSession.id == SetLog.session_id)
+        .join(Exercise, Exercise.id == SetLog.exercise_id)
+        .where(WorkoutSession.user_id == user_id, SetLog.weight_kg > 0)
+        .order_by(
+            SetLog.exercise_id,
+            SetLog.weight_kg.desc(),
+            SetLog.reps.desc(),
+            SetLog.created_at,
+        )
+        .distinct(SetLog.exercise_id)
+    )
+    records = [
+        PersonalRecordOut(
+            exercise_id=r[0], exercise_name=r[1], weight_kg=r[2], reps=r[3], achieved_on=r[4]
+        )
+        for r in rows
+    ]
+    return sorted(records, key=lambda r: r.exercise_name)
 
 
 def _own_set(db: Session, user_id: int, set_id: int) -> SetLog:

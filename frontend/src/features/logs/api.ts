@@ -69,7 +69,10 @@ export const swapToday = (workoutId: number, plan_exercise_id: number, exercise_
   });
 export const finishWorkout = (id: number) => api<void>(`/workouts/${id}/finish`, { method: "POST" });
 export const addSet = (workoutId: number, exercise_id: number, weight_kg: number, reps: number) =>
-  api<SetLog>(`/workouts/${workoutId}/sets`, { method: "POST", ...json({ exercise_id, weight_kg, reps }) });
+  api<SetLog & { is_record: boolean }>(`/workouts/${workoutId}/sets`, {
+    method: "POST",
+    ...json({ exercise_id, weight_kg, reps }),
+  });
 export const updateSet = (id: number, weight_kg: number, reps: number) =>
   api<SetLog>(`/sets/${id}`, { method: "PATCH", ...json({ weight_kg, reps }) });
 export const deleteSet = (id: number) => api<void>(`/sets/${id}`, { method: "DELETE" });

@@ -78,6 +78,8 @@ test("register → onboarding → plan → log workout → log food → progress
   await expect(page.getByRole("status").filter({ hasText: /salvată|actualizate/ })).toBeVisible();
   await expect(page.getByRole("img", { name: /Grafic greutate/ })).toBeVisible();
   await expect(page.getByRole("img", { name: /Grafic volum/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Recorduri personale" })).toBeVisible();
+  await expect(page.getByText("Goblet Squat")).toBeVisible();
 });
 
 test("screening with a 'yes' answer shows only the professional-advice page", async ({ page }) => {

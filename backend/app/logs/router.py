@@ -14,7 +14,9 @@ from app.logs.schemas import (
     MealIn,
     MealOut,
     MealUpdate,
+    PersonalRecordOut,
     SetIn,
+    SetLoggedOut,
     SetOut,
     SetUpdate,
     SwapIn,
@@ -102,14 +104,14 @@ def swap_exercise_today(workout_id: int, data: SwapIn, profile: Ready, db: Db) -
 
 
 @router.post("/workouts/{workout_id}/sets", status_code=status.HTTP_201_CREATED)
-def add_set(workout_id: int, data: SetIn, profile: Ready, db: Db) -> SetOut:
+def add_set(workout_id: int, data: SetIn, profile: Ready, db: Db) -> SetLoggedOut:
     try:
-        set_log = service.add_set(
+        set_log, is_record = service.add_set(
             db, profile.user_id, workout_id, data.exercise_id, data.weight_kg, data.reps
         )
     except DomainError as e:
         raise _http(e) from None
-    return SetOut.model_validate(set_log)
+    return SetLoggedOut(**SetOut.model_validate(set_log).model_dump(), is_record=is_record)
 
 
 @router.patch("/sets/{set_id}")
@@ -187,6 +189,11 @@ def _since(weeks: int) -> date:
 @router.get("/progress/weight")
 def weight_progress(profile: Ready, db: Db, weeks: Weeks = 12) -> WeightProgressOut:
     return service.weight_progress(db, profile.user_id, _since(weeks))
+
+
+@router.get("/progress/records")
+def personal_records(profile: Ready, db: Db) -> list[PersonalRecordOut]:
+    return service.personal_records(db, profile.user_id)
 
 
 @router.get("/progress/volume")
