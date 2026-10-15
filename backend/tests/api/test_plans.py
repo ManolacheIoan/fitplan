@@ -74,7 +74,7 @@ def test_program_choice_and_validation(make_user):
     onboard(c, training_days=5, program="bro_split")
     plan = c.get(f"{API}/plans/current").json()
     assert plan["template"] == "bro_split"
-    assert [d["name"] for d in plan["days"]] == ["Piept", "Spate", "Umeri", "Picioare", "Brațe"]
+    assert [d["name"] for d in plan["days"]] == ["Chest", "Back", "Shoulders", "Legs", "Arms"]
 
     r = c.put(f"{API}/profile", json=profile_payload(training_days=4, program="bro_split"))
     assert r.status_code == 422 and r.json()["detail"] == "program_days_mismatch"
