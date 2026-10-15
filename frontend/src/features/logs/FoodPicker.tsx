@@ -7,7 +7,7 @@ import { errorMessage } from "@/lib/errors";
 import { nf1 } from "@/lib/dates";
 import { useApi } from "@/lib/use-api";
 import { addMeal, createFood, searchExternalFoods, searchFoods, type Food, type RecentFood } from "./api";
-import { Attribution } from "./Attribution";
+import { Attribution, OffNotice } from "./Attribution";
 import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
 const SEARCH_DELAY_MS = 300;
@@ -199,11 +199,7 @@ function ExternalSearch({ query, onPick }: { query: string; onPick: (food: Food)
         <p className="text-sm font-semibold">Rezultate Open Food Facts</p>
         <FoodResults foods={foods} label="Rezultate Open Food Facts" onPick={onPick} />
         <p className="text-muted text-xs">
-          Date de la{" "}
-          <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer" className="underline">
-            Open Food Facts
-          </a>{" "}
-          (licență ODbL), introduse de voluntari: verifică valorile pe etichetă.
+          <OffNotice prefix="Date de la" />. Sunt introduse de voluntari: verifică valorile pe etichetă.
         </p>
       </div>
     );
