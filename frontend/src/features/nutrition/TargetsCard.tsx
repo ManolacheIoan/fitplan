@@ -1,16 +1,21 @@
 "use client";
 
+import { FlameIcon } from "@/components/Icons";
 import { Card } from "@/components/ui/Card";
+import { Ring } from "@/components/ui/Ring";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { errorMessage } from "@/lib/errors";
 import { ApiError } from "@/lib/api";
+import { todayLocal } from "@/lib/dates";
 import { useApi } from "@/lib/use-api";
+import type { DayMeals } from "@/features/logs/api";
 import type { TargetsResponse } from "./api";
 
 const nf = new Intl.NumberFormat("ro-RO", { maximumFractionDigits: 2 });
 
 export function TargetsCard() {
   const { data, error, loading, reload } = useApi<TargetsResponse>("/nutrition/targets");
+  const today = useApi<DayMeals>(`/meals?date=${todayLocal()}`);
   if (loading && !data) return <Loading />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return null;
@@ -25,6 +30,7 @@ export function TargetsCard() {
   }
 
   const t = data.targets;
+  const eaten = Number(today.data?.totals.kcal ?? 0);
   const weekly = Number(t.weekly_change_kg);
   return (
     <Card>
@@ -34,10 +40,24 @@ export function TargetsCard() {
           Estimare aproximativă
         </span>
       </div>
-      <p className="text-accent-text mt-3 text-5xl font-black">
-        ~{t.kcal}
-        <span className="text-muted ml-1 text-lg font-bold">kcal</span>
-      </p>
+      <div className="mt-4 flex items-center gap-5">
+        <Ring value={eaten / t.kcal}>
+          <span className="text-2xl leading-none font-black">{Math.round(eaten)}</span>
+          <span className="text-muted text-xs font-semibold">din ~{t.kcal} kcal</span>
+        </Ring>
+        <div className="flex flex-col gap-1">
+          <p className="text-muted flex items-center gap-1 text-sm font-semibold">
+            <FlameIcon width={16} height={16} className="text-accent-text" /> Ținta zilei
+          </p>
+          <p className="text-accent-text text-4xl font-black">
+            ~{t.kcal}
+            <span className="text-muted ml-1 text-base font-bold">kcal</span>
+          </p>
+          <p className="text-muted text-sm">
+            {eaten > t.kcal ? "Ai depășit ținta de azi." : `Mai ai ~${Math.round(t.kcal - eaten)} kcal azi.`}
+          </p>
+        </div>
+      </div>
       <dl className="mt-4 grid grid-cols-3 gap-2 text-center">
         {[
           ["Proteine", t.protein_g],
@@ -53,7 +73,8 @@ export function TargetsCard() {
       <p className="text-muted mt-4 text-sm">
         Calculat cu formula Mifflin-St Jeor pentru {t.based_on_weight_kg} kg. Necesar estimat de menținere: ~
         {t.tdee_kcal} kcal.
-        {weekly !== 0 && ` Ritm estimat: ~${nf.format(weekly)} kg/săptămână.`}
+        {weekly !== 0 &&
+          ` Ritm estimat: ${weekly > 0 ? "+" : "−"}${nf.format(Math.abs(weekly))} kg/săptămână (aprox.).`}
       </p>
       {t.floor_applied && (
         <p className="text-warning mt-2 text-sm">

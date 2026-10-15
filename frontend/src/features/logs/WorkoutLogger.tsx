@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
+import { CheckIcon } from "@/components/Icons";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import type { Exercise } from "@/features/plans/api";
@@ -220,14 +221,18 @@ function ExerciseCard({
   const done = sets.length >= planned.sets;
 
   return (
-    <Card className="flex flex-col gap-3">
+    <Card className={`flex flex-col gap-3 ${done ? "border-accent/60" : ""}`}>
       <div className="flex items-start justify-between gap-3">
         <h2 className="text-lg font-extrabold">{planned.exercise.name}</h2>
-        <span
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${done ? "bg-accent text-accent-fg" : "bg-surface-2 text-muted"}`}
-        >
-          {sets.length}/{planned.sets} serii
-        </span>
+        {done ? (
+          <span className="bg-accent text-accent-fg animate-pop flex shrink-0 items-center gap-1 rounded-full px-3 py-1 text-xs font-bold">
+            <CheckIcon width={14} height={14} /> Gata
+          </span>
+        ) : (
+          <span className="bg-surface-2 text-muted shrink-0 rounded-full px-3 py-1 text-xs font-bold">
+            {sets.length}/{planned.sets} serii
+          </span>
+        )}
       </div>
       <p className="text-muted text-sm">
         {planned.sets} × {repRange(planned.reps_min, planned.reps_max)}{" "}
@@ -261,6 +266,36 @@ function ExerciseCard({
   );
 }
 
+/** Sticky bar: sets logged against sets planned for the whole session. */
+function SessionProgress({ workout }: { workout: Workout }) {
+  const planned = workout.exercises.reduce((sum, e) => sum + e.planned.sets, 0);
+  const logged = workout.exercises.reduce((sum, e) => sum + Math.min(e.sets.length, e.planned.sets), 0);
+  const pct = planned ? Math.round((logged / planned) * 100) : 0;
+  return (
+    <div className="bg-bg/90 sticky top-0 z-30 -mx-4 px-4 py-3 backdrop-blur-md">
+      <div className="mb-1 flex justify-between text-sm font-bold">
+        <span>Progres antrenament</span>
+        <span className="text-accent-text">
+          {logged}/{planned} serii
+        </span>
+      </div>
+      <div
+        className="bg-surface-2 h-2.5 overflow-hidden rounded-full"
+        role="progressbar"
+        aria-label="Progres antrenament"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={pct}
+      >
+        <div
+          className="bg-accent h-full rounded-full transition-[width] duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 export function WorkoutLogger() {
   const router = useRouter();
   const id = Number(useSearchParams().get("id"));
@@ -291,6 +326,7 @@ export function WorkoutLogger() {
           {data.finished_at && ` · terminat ${formatDateTime(data.finished_at)}`}
         </p>
       </div>
+      <SessionProgress workout={data} />
       {data.exercises.map((item) => (
         <ExerciseCard key={item.planned.id} workoutId={data.id} item={item} onChange={reload} />
       ))}
