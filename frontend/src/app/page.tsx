@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Disclaimer } from "@/components/ui/Disclaimer";
 import { Logo } from "@/components/Logo";
+import { GuestButton } from "@/features/auth/GuestButton";
 
 const FEATURES = [
   ["Plan de sală", "Generat după zilele disponibile, obiectiv și experiență."],
@@ -35,6 +36,9 @@ export default function Home() {
           >
             Am deja cont
           </Link>
+        </div>
+        <div className="mt-3">
+          <GuestButton />
         </div>
       </section>
       <ul className="grid gap-3">

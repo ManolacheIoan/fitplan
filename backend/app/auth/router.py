@@ -10,6 +10,7 @@ from app.auth.schemas import (
     AccountDeleteIn,
     ConsentIn,
     Credentials,
+    GuestIn,
     MeOut,
     PasswordChangeIn,
     RegisterIn,
@@ -30,9 +31,9 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
-def _set_session_cookies(response: Response, token: str) -> None:
+def _set_session_cookies(response: Response, token: str, ttl_days: int) -> None:
     settings = get_settings()
-    max_age = settings.session_ttl_days * 24 * 3600
+    max_age = ttl_days * 24 * 3600
     common = {"max_age": max_age, "secure": settings.cookie_secure, "samesite": "lax", "path": "/"}
     response.set_cookie(SESSION_COOKIE, token, httponly=True, **common)  # type: ignore[arg-type]
     # Readable by the frontend so it can echo it in the X-CSRF-Token header.
@@ -44,9 +45,15 @@ def _clear_session_cookies(response: Response) -> None:
         response.delete_cookie(name, path="/", secure=get_settings().cookie_secure, samesite="lax")
 
 
+def _start_session(db: Session, response: Response, user: User) -> None:
+    token = service.create_session(db, user)
+    _set_session_cookies(response, token, service.session_ttl_days(user))
+
+
 def _me(db: Session, user: User) -> MeOut:
     return MeOut(
         email=user.email,
+        is_guest=user.is_guest,
         created_at=user.created_at,
         consent_required=not service.has_current_consent(db, user),
         policy_version=service.PRIVACY_POLICY_VERSION,
@@ -63,7 +70,19 @@ def register(
         user = service.register(db, data.email, data.password)
     except service.EmailTakenError:
         raise HTTPException(status.HTTP_409_CONFLICT, "email_taken") from None
-    _set_session_cookies(response, service.create_session(db, user))
+    service.purge_expired_guests(db)
+    _start_session(db, response, user)
+    return _me(db, user)
+
+
+@router.post("/auth/guest", status_code=status.HTTP_201_CREATED)
+def continue_as_guest(
+    _: GuestIn, request: Request, response: Response, db: Session = Depends(get_db)
+) -> MeOut:
+    if not register_limiter.hit(_client_ip(request)):
+        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
+    user = service.create_guest(db)
+    _start_session(db, response, user)
     return _me(db, user)
 
 
@@ -79,7 +98,9 @@ def login(
     user = service.authenticate(db, data.email, data.password)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_credentials")
-    _set_session_cookies(response, service.create_session(db, user))
+    # No scheduler on the free tier: expired guest accounts are removed opportunistically.
+    service.purge_expired_guests(db)
+    _start_session(db, response, user)
     return _me(db, user)
 
 
@@ -87,7 +108,11 @@ def login(
 def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> None:
     token = request.cookies.get(SESSION_COOKIE)
     if token:
-        service.end_session(db, token)
+        user = service.user_for_token(db, token)
+        if user is not None and user.is_guest:
+            service.delete_account(db, user)  # a guest's data does not outlive the session
+        else:
+            service.end_session(db, token)
     _clear_session_cookies(response)
 
 
@@ -114,7 +139,7 @@ def change_password(
         raise HTTPException(status.HTTP_403_FORBIDDEN, "invalid_credentials")
     service.change_password(db, user, data.new_password)
     # All sessions were invalidated; keep the current device signed in with a fresh one.
-    _set_session_cookies(response, service.create_session(db, user))
+    _start_session(db, response, user)
 
 
 @router.get("/account/export")
@@ -133,7 +158,7 @@ def delete_account(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    if not service.verify_password(user.password_hash, data.password):
+    if not user.is_guest and not service.verify_password(user.password_hash, data.password or ""):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "invalid_credentials")
     service.delete_account(db, user)
     _clear_session_cookies(response)
