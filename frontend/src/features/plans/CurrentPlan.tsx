@@ -9,5 +9,5 @@ export function CurrentPlan() {
   const { data, error, reload } = useApi<Plan>("/plans/current");
   if (error) return <ErrorState error={error} onRetry={reload} />;
   if (!data) return <Loading />;
-  return <PlanView plan={data} />;
+  return <PlanView plan={data} onChanged={reload} />;
 }

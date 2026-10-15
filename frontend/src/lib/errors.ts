@@ -10,6 +10,8 @@ const MESSAGES: Record<string, string> = {
   consent_required: "Este necesar consimțământul pentru a continua.",
   underage: "FitPlan este destinat exclusiv persoanelor de peste 18 ani.",
   age_out_of_range: "Verifică data nașterii.",
+  sets_already_logged: "Ai deja serii înregistrate pentru acest exercițiu în antrenamentul de azi.",
+  exercise_not_allowed: "Exercițiul ales nu poate înlocui acest exercițiu.",
   program_days_mismatch: "Programul ales nu este disponibil pentru acest număr de zile.",
   pregnancy_answer_required: "Te rugăm să răspunzi la toate întrebările.",
   weight_loss_blocked_bmi:

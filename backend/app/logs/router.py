@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.common.db import get_db
+from app.common.errors import DomainError
 from app.common.pagination import Limit, Offset, Page, page_of
 from app.logs import service
 from app.logs.schemas import (
@@ -16,6 +17,7 @@ from app.logs.schemas import (
     SetIn,
     SetOut,
     SetUpdate,
+    SwapIn,
     TodayOut,
     VolumeProgressOut,
     WeightIn,
@@ -37,7 +39,7 @@ Db = Annotated[Session, Depends(get_db)]
 Weeks = Annotated[int, Query(ge=1, le=104)]
 
 
-def _http(error: service.LogError) -> HTTPException:
+def _http(error: DomainError) -> HTTPException:
     return HTTPException(error.status, error.code)
 
 
@@ -48,7 +50,7 @@ def _http(error: service.LogError) -> HTTPException:
 def today(profile: Ready, db: Db) -> TodayOut:
     try:
         day, open_id = service.next_day(db, profile.user_id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
     return TodayOut(open_session_id=open_id, next_day=PlanDayOut.model_validate(day))
 
@@ -58,7 +60,7 @@ def start_workout(data: WorkoutStartIn, profile: Ready, db: Db) -> WorkoutOut:
     try:
         session = service.start_session(db, profile.user_id, data.plan_day_id)
         return service.workout_detail(db, profile.user_id, session.id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -76,7 +78,7 @@ def list_workouts(
 def read_workout(workout_id: int, profile: Ready, db: Db) -> WorkoutOut:
     try:
         return service.workout_detail(db, profile.user_id, workout_id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -84,7 +86,18 @@ def read_workout(workout_id: int, profile: Ready, db: Db) -> WorkoutOut:
 def finish_workout(workout_id: int, profile: Ready, db: Db) -> None:
     try:
         service.finish_session(db, profile.user_id, workout_id)
-    except service.LogError as e:
+    except DomainError as e:
+        raise _http(e) from None
+
+
+@router.post("/workouts/{workout_id}/swaps")
+def swap_exercise_today(workout_id: int, data: SwapIn, profile: Ready, db: Db) -> WorkoutOut:
+    try:
+        service.swap_for_session(
+            db, profile.user_id, workout_id, data.plan_exercise_id, data.exercise_id
+        )
+        return service.workout_detail(db, profile.user_id, workout_id)
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -94,7 +107,7 @@ def add_set(workout_id: int, data: SetIn, profile: Ready, db: Db) -> SetOut:
         set_log = service.add_set(
             db, profile.user_id, workout_id, data.exercise_id, data.weight_kg, data.reps
         )
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
     return SetOut.model_validate(set_log)
 
@@ -103,7 +116,7 @@ def add_set(workout_id: int, data: SetIn, profile: Ready, db: Db) -> SetOut:
 def update_set(set_id: int, data: SetUpdate, profile: Ready, db: Db) -> SetOut:
     try:
         set_log = service.update_set(db, profile.user_id, set_id, data.weight_kg, data.reps)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
     return SetOut.model_validate(set_log)
 
@@ -112,7 +125,7 @@ def update_set(set_id: int, data: SetUpdate, profile: Ready, db: Db) -> SetOut:
 def delete_set(set_id: int, profile: Ready, db: Db) -> None:
     try:
         service.delete_set(db, profile.user_id, set_id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -130,7 +143,7 @@ def meals_for_day(
 def add_meal(data: MealIn, profile: Ready, db: Db) -> MealOut:
     try:
         return service.add_meal(db, profile.user_id, data.food_id, data.eaten_on, data.grams)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -138,7 +151,7 @@ def add_meal(data: MealIn, profile: Ready, db: Db) -> MealOut:
 def update_meal(meal_id: int, data: MealUpdate, profile: Ready, db: Db) -> MealOut:
     try:
         return service.update_meal(db, profile.user_id, meal_id, data.grams)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -146,7 +159,7 @@ def update_meal(meal_id: int, data: MealUpdate, profile: Ready, db: Db) -> MealO
 def delete_meal(meal_id: int, profile: Ready, db: Db) -> None:
     try:
         service.delete_meal(db, profile.user_id, meal_id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 
@@ -163,7 +176,7 @@ def save_weight(data: WeightIn, profile: Ready, db: Db) -> WeightSavedOut:
 def delete_weight(weight_id: int, profile: Ready, db: Db) -> None:
     try:
         service.delete_weight(db, profile, weight_id)
-    except service.LogError as e:
+    except DomainError as e:
         raise _http(e) from None
 
 

@@ -11,6 +11,8 @@ export type Suggestion = {
 
 export type WorkoutExercise = {
   planned: PlanExercise;
+  /** Replaced for this workout only; the plan is unchanged. */
+  swapped_today: boolean;
   sets: SetLog[];
   last_sets: { weight_kg: string; reps: number }[];
   suggestion: Suggestion;
@@ -60,6 +62,11 @@ export type DayMeals = { date: string; entries: Meal[]; totals: Macros; targets:
 
 export const startWorkout = (plan_day_id: number) =>
   api<Workout>("/workouts", { method: "POST", ...json({ plan_day_id }) });
+export const swapToday = (workoutId: number, plan_exercise_id: number, exercise_id: number) =>
+  api<Workout>(`/workouts/${workoutId}/swaps`, {
+    method: "POST",
+    ...json({ plan_exercise_id, exercise_id }),
+  });
 export const finishWorkout = (id: number) => api<void>(`/workouts/${id}/finish`, { method: "POST" });
 export const addSet = (workoutId: number, exercise_id: number, weight_kg: number, reps: number) =>
   api<SetLog>(`/workouts/${workoutId}/sets`, { method: "POST", ...json({ exercise_id, weight_kg, reps }) });

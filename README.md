@@ -34,7 +34,7 @@ log workouts, food and body weight.
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
 | Nutrition targets | Mifflin-St Jeor BMR × activity multiplier, moderate deficit/surplus capped by a maximum weekly rate, calorie floor, protein g/kg, minimum fat share, carbs as remainder. Always labelled as approximate. |
 | Gym plan | Rule-based programs chosen by the user or automatically: Full Body (2–3 days), Upper/Lower (2, 4), Push/Pull/Legs (3, 5, 6), Bro Split (5). The plan has exactly one day per training day. 77 curated exercises (English gym names, original Romanian descriptions), each with its own rep scheme (heavy barbell lifts, machine/dumbbell compounds, isolation, hard bodyweight, calves, core, timed holds in seconds), sets adjusted by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
-| Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. |
+| Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. Any exercise can be replaced by one with the same movement pattern and a suitable level, either for today only or permanently in the plan (sets/reps follow the new exercise). |
 | Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. External food DB adapter interface + mock only. |
 | Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week), weekly averages, weight and training-volume charts with a table view. |
 | Settings | Theme (dark default / light), profile edit, retake screening, privacy policy, visible disclaimer on every app page. |
@@ -101,7 +101,7 @@ frontend/netlify.toml  Netlify build, security headers
 
 ## Data model
 
-14 tables. Every user-owned table has a foreign key to `users` with `ON DELETE CASCADE`,
+15 tables. Every user-owned table has a foreign key to `users` with `ON DELETE CASCADE`,
 so deleting the user row deletes everything.
 
 | Table | Purpose | Notable constraints / indexes |
@@ -116,6 +116,7 @@ so deleting the user row deletes everything.
 | `plan_days` | days of a plan | unique (plan_id, position) |
 | `plan_exercises` | prescription per exercise | sets 1–10, 1 ≤ reps_min ≤ reps_max ≤ 30, rest 30–300 s |
 | `workout_sessions` | started/finished | partial unique: one open session per user; idx (user_id, started_at) |
+| `workout_swaps` | exercise replaced for one session only | unique (session_id, plan_exercise_id) |
 | `set_logs` | weight × reps | weight 0–500, reps 1–100; idx session_id, exercise_id |
 | `weight_logs` | one entry per day | unique (user_id, logged_on); weight 30–300 |
 | `foods` | per 100 g; global (seed/external) or private (manual) | kcal 0–900, macros sum ≤ 100; GIN trigram index; unique (external_source, external_id) |

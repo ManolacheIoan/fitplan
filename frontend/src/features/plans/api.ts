@@ -1,3 +1,4 @@
+import { api, json } from "@/lib/api";
 import type { Experience, Goal } from "@/features/profile/api";
 
 export type Exercise = {
@@ -41,3 +42,9 @@ export type PlanSummary = {
 export type Plan = PlanSummary & { days: PlanDay[] };
 
 export type Page<T> = { items: T[]; next_offset: number | null };
+
+export const getAlternatives = (planExerciseId: number) =>
+  api<Exercise[]>(`/plans/exercises/${planExerciseId}/alternatives`);
+
+export const swapPermanently = (planExerciseId: number, exercise_id: number) =>
+  api<PlanExercise>(`/plans/exercises/${planExerciseId}`, { method: "PATCH", ...json({ exercise_id }) });

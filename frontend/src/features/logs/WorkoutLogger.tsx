@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/Button";
 import { CheckIcon } from "@/components/Icons";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
-import type { Exercise } from "@/features/plans/api";
+import { swapPermanently, type Exercise } from "@/features/plans/api";
 import { reps as repRange } from "@/features/plans/labels";
+import { SwapPanel } from "@/features/plans/SwapPanel";
 import { formatDateTime, nf1 } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
 import { useApi } from "@/lib/use-api";
@@ -15,6 +16,7 @@ import {
   addSet,
   deleteSet,
   finishWorkout,
+  swapToday,
   updateSet,
   type SetLog,
   type Workout,
@@ -203,13 +205,18 @@ function SetRow({ set, measure, onChange }: { set: SetLog; measure: Measure; onC
 function ExerciseCard({
   workoutId,
   item,
+  finished,
   onChange,
 }: {
   workoutId: number;
   item: WorkoutExercise;
+  finished: boolean;
   onChange: () => void;
 }) {
   const { planned, sets, last_sets: last } = item;
+  const [swapping, setSwapping] = useState(false);
+  // Replacing is only possible before logging sets, so logged sets never disappear.
+  const canSwap = !finished && sets.length === 0;
   const measure = measureOf(planned.exercise);
   const lastSet = sets.at(-1);
   const defaultWeight =
@@ -237,7 +244,41 @@ function ExerciseCard({
       <p className="text-muted text-sm">
         {planned.sets} × {repRange(planned.reps_min, planned.reps_max)}{" "}
         {measure.timed ? "secunde" : "repetări"} · pauză {planned.rest_seconds} s
+        {item.swapped_today && <span className="text-accent-text font-semibold"> · înlocuit azi</span>}
       </p>
+      {canSwap &&
+        (swapping ? (
+          <SwapPanel
+            planExerciseId={planned.id}
+            onClose={() => setSwapping(false)}
+            choices={[
+              {
+                label: "Doar azi",
+                run: async (replacement) => {
+                  await swapToday(workoutId, planned.id, replacement.id);
+                  setSwapping(false);
+                  onChange();
+                },
+              },
+              {
+                label: "Permanent",
+                run: async (replacement) => {
+                  await swapPermanently(planned.id, replacement.id);
+                  setSwapping(false);
+                  onChange();
+                },
+              },
+            ]}
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setSwapping(true)}
+            className="text-accent-text min-h-11 self-start text-sm font-semibold"
+          >
+            Înlocuiește exercițiul
+          </button>
+        ))}
       {last.length > 0 && (
         <p className="text-muted text-sm">
           Data trecută: {last.map((s) => setText(s.weight_kg, s.reps, measure)).join(", ")}
@@ -328,7 +369,13 @@ export function WorkoutLogger() {
       </div>
       <SessionProgress workout={data} />
       {data.exercises.map((item) => (
-        <ExerciseCard key={item.planned.id} workoutId={data.id} item={item} onChange={reload} />
+        <ExerciseCard
+          key={`${item.planned.id}-${item.planned.exercise.id}`}
+          workoutId={data.id}
+          item={item}
+          finished={data.finished_at !== null}
+          onChange={reload}
+        />
       ))}
       {!data.finished_at && (
         <Button loading={finishing} onClick={finish}>

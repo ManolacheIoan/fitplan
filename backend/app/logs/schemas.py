@@ -39,6 +39,11 @@ class SetIn(BaseModel):
     reps: Reps
 
 
+class SwapIn(BaseModel):
+    plan_exercise_id: int
+    exercise_id: int
+
+
 class SetUpdate(BaseModel):
     weight_kg: LoadKg | None = None
     reps: Reps | None = None
@@ -66,6 +71,8 @@ class SuggestionOut(BaseModel):
 
 class WorkoutExerciseOut(BaseModel):
     planned: PlanExerciseOut
+    # True when the exercise was replaced for this session only.
+    swapped_today: bool
     sets: list[SetOut]
     last_sets: list[LastSetOut]
     suggestion: SuggestionOut

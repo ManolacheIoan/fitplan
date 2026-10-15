@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
+from app.common.errors import DomainError
 from app.plans import generator
 from app.plans.models import Exercise, Plan, PlanDay, PlanExercise, RepScheme, Template
 from app.plans.schemas import PlanOut
@@ -20,6 +21,55 @@ def is_loadable(exercise: Exercise) -> bool:
     if exercise.rep_scheme is RepScheme.TIMED:
         return False
     return exercise.equipment != "bodyweight" or exercise.rep_scheme is RepScheme.STRENGTH
+
+
+def own_active_plan_exercise(
+    db: Session, user_id: int, plan_exercise_id: int
+) -> tuple[PlanExercise, Plan]:
+    """A plan exercise of the user's active plan (other users' rows look missing)."""
+    row = db.execute(
+        select(PlanExercise, Plan)
+        .join(PlanDay, PlanDay.id == PlanExercise.plan_day_id)
+        .join(Plan, Plan.id == PlanDay.plan_id)
+        .where(PlanExercise.id == plan_exercise_id, Plan.user_id == user_id, Plan.is_active)
+    ).first()
+    if row is None:
+        raise DomainError("plan_exercise_not_found", 404)
+    return row[0], row[1]
+
+
+def alternatives(db: Session, planned: PlanExercise, plan: Plan) -> list[Exercise]:
+    """Same movement pattern, allowed for the plan's level, not already in that day."""
+    in_day = select(PlanExercise.exercise_id).where(PlanExercise.plan_day_id == planned.plan_day_id)
+    pattern = planned.exercise.pattern
+    pool = db.scalars(
+        select(Exercise).where(Exercise.pattern == pattern, Exercise.id.not_in(in_day))
+    )
+    return generator.candidates_by_pattern(list(pool), plan.experience).get(pattern, [])
+
+
+def check_alternative(db: Session, planned: PlanExercise, plan: Plan, exercise_id: int) -> Exercise:
+    for exercise in alternatives(db, planned, plan):
+        if exercise.id == exercise_id:
+            return exercise
+    raise DomainError("exercise_not_allowed", 422)
+
+
+def swap_permanently(
+    db: Session, user_id: int, plan_exercise_id: int, exercise_id: int, logged_in_open_session: bool
+) -> PlanExercise:
+    """Replace the exercise in the active plan; sets/reps/rest follow the new exercise."""
+    planned, plan = own_active_plan_exercise(db, user_id, plan_exercise_id)
+    if logged_in_open_session:
+        raise DomainError("sets_already_logged", 409)
+    exercise = check_alternative(db, planned, plan, exercise_id)
+    p = generator.prescription(exercise, plan.goal, plan.experience)
+    planned.exercise_id = exercise.id
+    planned.sets, planned.reps_min, planned.reps_max = p.sets, p.reps_min, p.reps_max
+    planned.rest_seconds = p.rest_seconds
+    db.commit()
+    db.refresh(planned)
+    return planned
 
 
 def active(db: Session, user_id: int) -> Plan | None:
