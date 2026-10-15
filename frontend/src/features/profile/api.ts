@@ -5,6 +5,7 @@ export type ActivityLevel = "sedentary" | "light" | "moderate" | "active" | "ver
 export type Goal = "lose" | "maintain" | "gain";
 export type Experience = "beginner" | "intermediate" | "advanced";
 export type ScreeningStatus = "passed" | "refer";
+export type Program = "auto" | "full_body" | "upper_lower" | "push_pull_legs" | "bro_split";
 
 export type ProfileInput = {
   display_name: string;
@@ -17,6 +18,7 @@ export type ProfileInput = {
   training_days: number;
   experience: Experience;
   equipment: "gym";
+  program: Program;
 };
 
 export type Profile = ProfileInput & {

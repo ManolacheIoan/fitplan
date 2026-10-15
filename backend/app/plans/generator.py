@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from app.plans import constants as c
 from app.plans.models import Exercise, Pattern, Template
-from app.profile.models import Experience, Goal
+from app.profile.models import Experience, Goal, Program
 
 _LEVEL = {Experience.BEGINNER: 0, Experience.INTERMEDIATE: 1, Experience.ADVANCED: 2}
 
@@ -53,15 +53,28 @@ def prescription(exercise: Exercise, goal: Goal, experience: Experience) -> Pres
     return Prescription(exercise, sets, reps_min, reps_max, rest)
 
 
+def resolve_template(program: Program, days_per_week: int) -> Template | None:
+    """Template for the chosen program, or None if it does not support that many days."""
+    if program is Program.AUTO:
+        return c.AUTO_TEMPLATE[days_per_week]
+    template = Template(program.value)
+    return template if days_per_week in c.ALLOWED_DAYS[template] else None
+
+
 def generate(
-    library: list[Exercise], days_per_week: int, goal: Goal, experience: Experience
+    library: list[Exercise],
+    template: Template,
+    days_per_week: int,
+    goal: Goal,
+    experience: Experience,
 ) -> GeneratedPlan:
+    """One plan day per training day, following the template's sessions."""
     options = candidates_by_pattern(library, experience)
     # Rotating through candidates gives variety when a pattern appears several times.
     next_index: dict[Pattern, int] = defaultdict(int)
     max_per_session = c.MAX_EXERCISES_PER_SESSION[experience]
     days = []
-    for name, slots in c.SESSIONS[days_per_week]:
+    for name, slots in c.SESSIONS[(template, days_per_week)]:
         chosen: list[Prescription] = []
         used: set[int] = set()
         for pattern in slots:
@@ -76,4 +89,4 @@ def generate(
                     chosen.append(prescription(exercise, goal, experience))
                     break
         days.append(GeneratedDay(name, chosen))
-    return GeneratedPlan(c.TEMPLATE_FOR_DAYS[days_per_week], days)
+    return GeneratedPlan(template, days)

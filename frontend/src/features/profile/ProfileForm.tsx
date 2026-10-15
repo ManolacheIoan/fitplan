@@ -9,7 +9,7 @@ import { ApiError } from "@/lib/api";
 import { errorMessage } from "@/lib/errors";
 import { useApi } from "@/lib/use-api";
 import { saveProfile, type Profile, type ProfileInput } from "./api";
-import { ACTIVITY_LABELS, EXPERIENCE_LABELS, GOAL_LABELS, SEX_LABELS, options } from "./labels";
+import { ACTIVITY_LABELS, EXPERIENCE_LABELS, GOAL_LABELS, PROGRAMS, SEX_LABELS, options } from "./labels";
 
 function latestAdultBirthDate(): string {
   const d = new Date();
@@ -30,6 +30,7 @@ function readForm(form: FormData): ProfileInput {
     training_days: Number(text("training_days")),
     experience: text("experience") as ProfileInput["experience"],
     equipment: "gym",
+    program: text("program") as ProfileInput["program"],
   };
 }
 
@@ -43,6 +44,15 @@ export function ProfileForm() {
 
 function Form({ initial }: { initial?: Profile }) {
   const router = useRouter();
+  const [days, setDays] = useState(initial ? String(initial.training_days) : "");
+  const [program, setProgram] = useState<string>(initial?.program ?? "auto");
+  const programs = PROGRAMS.filter((p) => !days || p.days.includes(Number(days)));
+
+  function chooseDays(value: string) {
+    setDays(value);
+    // Keep the program only if it supports the new number of days.
+    if (!PROGRAMS.find((p) => p.value === program)?.days.includes(Number(value))) setProgram("auto");
+  }
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
@@ -126,8 +136,17 @@ function Form({ initial }: { initial?: Profile }) {
         legend="Zile de antrenament pe săptămână"
         name="training_days"
         options={[2, 3, 4, 5, 6].map((n) => ({ value: String(n), label: String(n) }))}
-        defaultValue={initial ? String(initial.training_days) : undefined}
+        value={days}
+        onValueChange={chooseDays}
         columns={3}
+      />
+      <ChoiceGroup
+        legend="Tip de program"
+        name="program"
+        value={program}
+        onValueChange={setProgram}
+        options={programs.map(({ value, label, description }) => ({ value, label, description }))}
+        hint="Planul va avea exact atâtea zile de antrenament câte ai ales."
       />
       <ChoiceGroup
         legend="Experiență"

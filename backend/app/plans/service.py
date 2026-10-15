@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.plans import generator
-from app.plans.models import Exercise, Plan, PlanDay, PlanExercise
+from app.plans.models import Exercise, Plan, PlanDay, PlanExercise, Template
 from app.plans.schemas import PlanOut
 from app.profile.models import Profile, ScreeningStatus
 
@@ -40,8 +40,16 @@ def _deactivate(db: Session, user_id: int) -> None:
     db.execute(update(Plan).where(Plan.user_id == user_id, Plan.is_active).values(is_active=False))
 
 
+def _template_for(profile: Profile) -> Template:
+    template = generator.resolve_template(profile.program, profile.training_days)
+    if template is None:  # prevented by profile validation
+        raise ValueError("program does not support this number of days")
+    return template
+
+
 def _inputs_changed(plan: Plan, profile: Profile) -> bool:
-    return (plan.days_per_week, plan.goal, plan.experience, plan.equipment) != (
+    return (plan.template, plan.days_per_week, plan.goal, plan.experience, plan.equipment) != (
+        _template_for(profile),
         profile.training_days,
         profile.goal,
         profile.experience,
@@ -63,7 +71,9 @@ def sync_with_profile(db: Session, profile: Profile) -> None:
     _deactivate(db, profile.user_id)
     db.flush()
     library = list(db.scalars(select(Exercise)))
-    generated = generator.generate(library, profile.training_days, profile.goal, profile.experience)
+    generated = generator.generate(
+        library, _template_for(profile), profile.training_days, profile.goal, profile.experience
+    )
     db.add(
         Plan(
             user_id=profile.user_id,

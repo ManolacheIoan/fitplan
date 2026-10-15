@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.common.health_constants import MAX_AGE_YEARS, MIN_AGE_YEARS
 from app.nutrition import service as nutrition_service
+from app.plans import generator as plan_generator
 from app.plans import service as plans_service
 from app.profile import screening
 from app.profile.models import Profile, ScreeningStatus
@@ -47,6 +48,8 @@ def validate(data: ProfileIn) -> None:
         raise ProfileRuleError("age_out_of_range")
     if not screening.goal_allowed(data.goal, data.weight_kg, data.height_cm):
         raise ProfileRuleError("weight_loss_blocked_bmi")
+    if plan_generator.resolve_template(data.program, data.training_days) is None:
+        raise ProfileRuleError("program_days_mismatch")
 
 
 def save(db: Session, user_id: int, data: ProfileIn) -> Profile:

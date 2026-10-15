@@ -4,7 +4,15 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator
 
 from app.common.health_constants import HEIGHT_CM_RANGE, WEIGHT_KG_RANGE
-from app.profile.models import ActivityLevel, Equipment, Experience, Goal, ScreeningStatus, Sex
+from app.profile.models import (
+    ActivityLevel,
+    Equipment,
+    Experience,
+    Goal,
+    Program,
+    ScreeningStatus,
+    Sex,
+)
 
 Height = Field(ge=HEIGHT_CM_RANGE[0], le=HEIGHT_CM_RANGE[1], decimal_places=1)
 Weight = Field(ge=WEIGHT_KG_RANGE[0], le=WEIGHT_KG_RANGE[1], decimal_places=1)
@@ -21,6 +29,7 @@ class ProfileIn(BaseModel):
     training_days: int = Field(ge=2, le=6)
     experience: Experience
     equipment: Equipment = Equipment.GYM
+    program: Program = Program.AUTO
 
     @field_validator("display_name")
     @classmethod
@@ -45,6 +54,7 @@ class ProfileOut(BaseModel):
     training_days: int
     experience: Experience
     equipment: Equipment
+    program: Program
     screening_status: ScreeningStatus | None
     screening_at: datetime | None
 

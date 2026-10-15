@@ -27,7 +27,7 @@ export type PlanDay = { id: number; position: number; name: string; exercises: P
 
 export type PlanSummary = {
   id: number;
-  template: "full_body" | "upper_lower" | "push_pull_legs";
+  template: "full_body" | "upper_lower" | "push_pull_legs" | "bro_split";
   days_per_week: number;
   goal: Goal;
   experience: Experience;
