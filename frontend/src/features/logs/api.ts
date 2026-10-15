@@ -1,4 +1,5 @@
 import { api, json } from "@/lib/api";
+import type { MealType } from "./meals";
 import type { Targets } from "@/features/nutrition/api";
 import type { PlanDay, PlanExercise } from "@/features/plans/api";
 
@@ -57,7 +58,13 @@ export type FoodInput = {
 };
 
 type Macros = { kcal: string; protein_g: string; carbs_g: string; fat_g: string };
-export type Meal = Macros & { id: number; food: Food; eaten_on: string; grams: string };
+export type Meal = Macros & {
+  id: number;
+  food: Food;
+  eaten_on: string;
+  grams: string;
+  meal_type: MealType | null; // null for entries logged before categories existed
+};
 export type DayMeals = { date: string; entries: Meal[]; totals: Macros; targets: Targets | null };
 
 export const startWorkout = (plan_day_id: number) =>
@@ -79,8 +86,8 @@ export const deleteSet = (id: number) => api<void>(`/sets/${id}`, { method: "DEL
 
 export const searchFoods = (q: string) => api<Food[]>(`/foods?q=${encodeURIComponent(q)}`);
 export const createFood = (data: FoodInput) => api<Food>("/foods", { method: "POST", ...json(data) });
-export const addMeal = (food_id: number, eaten_on: string, grams: number) =>
-  api<Meal>("/meals", { method: "POST", ...json({ food_id, eaten_on, grams }) });
-export const updateMeal = (id: number, grams: number) =>
-  api<Meal>(`/meals/${id}`, { method: "PATCH", ...json({ grams }) });
+export const addMeal = (food_id: number, eaten_on: string, grams: number, meal_type: MealType) =>
+  api<Meal>("/meals", { method: "POST", ...json({ food_id, eaten_on, grams, meal_type }) });
+export const updateMeal = (id: number, grams: number, meal_type: MealType) =>
+  api<Meal>(`/meals/${id}`, { method: "PATCH", ...json({ grams, meal_type }) });
 export const deleteMeal = (id: number) => api<void>(`/meals/${id}`, { method: "DELETE" });

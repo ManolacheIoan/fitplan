@@ -2,10 +2,11 @@
 
 import { useRef, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/Button";
-import { TextField } from "@/components/ui/Field";
+import { ChoiceGroup, TextField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/errors";
 import { nf1 } from "@/lib/dates";
 import { addMeal, createFood, searchFoods, type Food } from "./api";
+import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
 const SEARCH_DELAY_MS = 300;
 
@@ -78,10 +79,10 @@ function AddPortion({ food, date, onAdded }: { food: Food; date: string; onAdded
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const grams = Number(new FormData(event.currentTarget).get("grams"));
+    const form = new FormData(event.currentTarget);
     setPending(true);
     try {
-      await addMeal(food.id, date, grams);
+      await addMeal(food.id, date, Number(form.get("grams")), form.get("meal_type") as MealType);
       onAdded();
     } catch (err) {
       setError(errorMessage(err));
@@ -96,6 +97,13 @@ function AddPortion({ food, date, onAdded }: { food: Food; date: string; onAdded
         La 100 g: {nf1.format(Number(food.kcal_100g))} kcal · P {food.protein_100g} g · C {food.carbs_100g} g
         · G {food.fat_100g} g
       </p>
+      <ChoiceGroup
+        legend="Masa"
+        name="meal_type"
+        options={MEAL_TYPES}
+        defaultValue={mealTypeForNow()}
+        columns={2}
+      />
       <div className="grid grid-cols-[1fr_auto] items-end gap-2">
         <TextField
           label="Cantitate (g)"

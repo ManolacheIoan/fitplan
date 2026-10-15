@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from enum import StrEnum
 
 from sqlalchemy import (
     CheckConstraint,
@@ -14,7 +15,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.common.db import Base
+from app.common.db import Base, str_enum
 from app.common.health_constants import WEIGHT_KG_RANGE
 
 
@@ -64,6 +65,13 @@ class SetLog(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class MealType(StrEnum):
+    BREAKFAST = "breakfast"
+    LUNCH = "lunch"
+    DINNER = "dinner"
+    SNACK = "snack"
+
+
 class MealLog(Base):
     __tablename__ = "meal_logs"
     __table_args__ = (
@@ -77,6 +85,8 @@ class MealLog(Base):
     food_id: Mapped[int] = mapped_column(ForeignKey("foods.id", ondelete="CASCADE"))
     eaten_on: Mapped[date] = mapped_column(Date)
     grams: Mapped[Decimal] = mapped_column(Numeric(6, 1))
+    # NULL only for entries logged before categories existed.
+    meal_type: Mapped[MealType | None] = mapped_column(str_enum(MealType))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
