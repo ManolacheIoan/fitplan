@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DumbbellIcon } from "@/components/Icons";
 import { Card } from "@/components/ui/Card";
 import { ErrorState, Loading } from "@/components/ui/States";
 import { errorMessage } from "@/lib/errors";
@@ -31,8 +32,10 @@ export function TodayWorkoutCard() {
 
   const { next_day: day, open_session_id: openId } = data;
   return (
-    <Card className="flex flex-col gap-3">
-      <p className="text-muted text-sm font-bold uppercase">Antrenamentul de azi</p>
+    <Card className="hero-glow border-accent/40 flex flex-col gap-3 overflow-hidden">
+      <p className="text-accent-text flex items-center gap-2 text-sm font-bold tracking-wide uppercase">
+        <DumbbellIcon width={18} height={18} /> Antrenamentul de azi
+      </p>
       <h2 className="text-2xl font-black uppercase">
         <span className="text-accent-text">Ziua {day.position}</span> · {day.name}
       </h2>
