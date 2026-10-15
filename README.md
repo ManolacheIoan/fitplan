@@ -329,6 +329,31 @@ Also to review: the screening question wording (`frontend/src/features/profile/S
 and the exercise descriptions (`backend/seed/exercises.py`). After changing a formula or
 constant, bump `RULES_VERSION` in `nutrition/rules.py`.
 
+### How I validated the formulas
+
+1. **Source formulas.** BMR uses the Mifflin-St Jeor equation as published (Mifflin et al.,
+   *Am J Clin Nutr* 1990;51:241–247): `10·kg + 6.25·cm − 5·age + 5` (men) / `− 161` (women).
+   The activity multipliers are the commonly used 1.2 / 1.375 / 1.55 / 1.725 / 1.9.
+2. **Unit tests with hand-derived values.** `tests/unit/test_nutrition_rules.py` checks every
+   step (BMR, TDEE, deficit/surplus cap, calorie floor, macro split, edge cases). The
+   arithmetic is written in the test comments.
+3. **Independent recomputation.** The three cases below were recomputed by a separate
+   script that does not import FitPlan code and uses exact fractions. All values matched
+   the app, and they are pinned in `tests/unit/test_nutrition_reference_cases.py`.
+4. **Not done yet: comparison with a public calculator.** Enter the inputs below into a
+   trusted Mifflin-St Jeor calculator and compare **BMR** and **TDEE** (± 1 kcal for
+   rounding). The target calories and macros depend on FitPlan's own deficit, surplus and
+   macro constants, so other calculators will differ there by design.
+
+| Case | Inputs | BMR | TDEE | Target | Protein / Fat / Carbs (g) |
+|---|---|---|---|---|---|
+| A | Female, 30 y, 168 cm, 70 kg, moderate (×1.55), lose | 1439 | 2230.45 | 1780 (−20 %, under the 577.5 kcal cap) | 140 / 49 / 194 |
+| B | Male, 25 y, 180 cm, 80 kg, active (×1.725), gain | 1805 | 3113.63 | 3330 (+220 weekly-rate cap, not +10 %) | 144 / 92 / 481 |
+| C | Male, 45 y, 175 cm, 95 kg, light (×1.375), maintain | 1823.75 | 2507.66 | 2510 | 152 / 70 / 318 |
+
+Validation by a qualified professional is still required: these checks prove the code
+implements the formulas correctly, not that the constants are right for users.
+
 ### Known limitations
 
 - All values are **approximate population-level estimates**, not individual advice. The
