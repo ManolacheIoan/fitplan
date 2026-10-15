@@ -26,6 +26,8 @@ export default defineConfig({
         ALLOWED_ORIGINS: `http://localhost:${FRONTEND_PORT}`,
         // Several accounts are created per run; rate limiting itself is covered by pytest.
         LOGIN_RATE_LIMIT: "1000",
+        // E2E never calls external services.
+        FOOD_SOURCE: "none",
       },
     },
     {

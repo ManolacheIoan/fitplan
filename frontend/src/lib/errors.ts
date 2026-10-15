@@ -12,6 +12,9 @@ const MESSAGES: Record<string, string> = {
   age_out_of_range: "Verifică data nașterii.",
   sets_already_logged: "Ai deja serii înregistrate pentru acest exercițiu în antrenamentul de azi.",
   exercise_not_allowed: "Exercițiul ales nu poate înlocui acest exercițiu.",
+  food_source_busy: "Prea multe căutări în baza externă. Încearcă din nou peste un minut.",
+  food_source_unavailable: "Open Food Facts nu răspunde acum. Încearcă puțin mai târziu.",
+  food_source_disabled: "Căutarea în baza externă de alimente nu este activată.",
   program_days_mismatch: "Programul ales nu este disponibil pentru acest număr de zile.",
   pregnancy_answer_required: "Te rugăm să răspunzi la toate întrebările.",
   weight_loss_blocked_bmi:

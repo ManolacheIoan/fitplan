@@ -6,6 +6,7 @@ import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { formatDay, nf1, todayLocal } from "@/lib/dates";
 import { useApi } from "@/lib/use-api";
 import { deleteMeal, updateMeal, type DayMeals, type Meal } from "./api";
+import { Attribution } from "./Attribution";
 import { FoodPicker } from "./FoodPicker";
 import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
@@ -59,6 +60,11 @@ function MealRow({ meal, onChange }: { meal: Meal; onChange: () => void }) {
       <div className="flex items-center justify-between gap-2">
         <span>
           <span className="block font-semibold">{meal.food.name}</span>
+          {meal.food.attribution && (
+            <span className="block">
+              <Attribution text={meal.food.attribution} />
+            </span>
+          )}
           <span className="text-muted text-sm">
             {nf1.format(Number(meal.grams))} g · {nf1.format(Number(meal.kcal))} kcal
           </span>

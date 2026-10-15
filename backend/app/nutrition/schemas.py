@@ -64,3 +64,5 @@ class FoodOut(BaseModel):
     fat_100g: Decimal
     source: FoodSourceKind
     is_own: bool = False
+    # Required credit for data from an external database (e.g. Open Food Facts, ODbL).
+    attribution: str | None = None

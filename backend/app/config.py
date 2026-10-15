@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     app_timezone: str = "Europe/Bucharest"
     login_rate_limit: int = 5
     login_rate_window_seconds: int = 15 * 60
-    # External food database adapter: "none" (default) or "mock". See nutrition/food_sources.
+    # External food database: "none" (default), "open_food_facts" or "mock" (tests).
     food_source: str = "none"
+    # Open Food Facts asks for "AppName/Version (contact email)"; set your own contact.
+    off_user_agent: str = "FitPlan/0.1 (set OFF_USER_AGENT)"
     feature_ai_meal_parsing: bool = False
 
     @field_validator("database_url")

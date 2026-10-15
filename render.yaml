@@ -26,6 +26,8 @@ services:
       - key: COOKIE_SECURE
         value: "true"
       - key: FOOD_SOURCE
-        value: none
+        value: open_food_facts
+      - key: OFF_USER_AGENT
+        sync: false # e.g. "FitPlan/1.0 (your-contact@example.com)"
       - key: FEATURE_AI_MEAL_PARSING
         value: "false"

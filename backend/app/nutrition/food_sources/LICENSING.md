@@ -1,8 +1,21 @@
 # External food databases: licensing and attribution
 
-V1 ships only the `FoodSource` interface and a `MockFoodSource`. Before enabling a real
-adapter, review the provider's current terms. The summary below was accurate when written;
-always check the official pages.
+FitPlan ships an **Open Food Facts** adapter (`open_food_facts.py`, enabled with
+`FOOD_SOURCE=open_food_facts`) and a `MockFoodSource` for tests. The summary below was
+accurate when written (October 2026); always check the official pages.
+
+## How FitPlan complies with Open Food Facts' rules
+- Search runs only when the user presses "Caută în Open Food Facts" (their docs ask not to
+  use the API for search-as-you-type). Local search stays instant.
+- Their limit is about 10 searches/min per IP. FitPlan allows at most 8/min for the whole
+  app and 4/min per user, and does not resend the same term for 24 h.
+- Requests carry an identifying User-Agent (`OFF_USER_AGENT`, "App/Version (contact)").
+- Results are cached in `foods` (`source = external`, `external_source = open_food_facts`);
+  hits with missing or implausible values are skipped.
+- Attribution ("Open Food Facts (ODbL)", linked) is shown with search results, on the add
+  form and on logged entries that use their data.
+- The privacy policy (version 2026-10-v2) states that only the search text is sent.
+- OFF asks API users to describe their use in a short form; do this before going public.
 
 ## USDA FoodData Central (FDC)
 - Data is published by the U.S. Department of Agriculture and is in the **public domain**

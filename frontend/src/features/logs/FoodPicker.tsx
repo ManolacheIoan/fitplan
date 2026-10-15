@@ -6,7 +6,8 @@ import { ChoiceGroup, TextField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/errors";
 import { nf1 } from "@/lib/dates";
 import { useApi } from "@/lib/use-api";
-import { addMeal, createFood, searchFoods, type Food, type RecentFood } from "./api";
+import { addMeal, createFood, searchExternalFoods, searchFoods, type Food, type RecentFood } from "./api";
+import { Attribution } from "./Attribution";
 import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
 const SEARCH_DELAY_MS = 300;
@@ -104,6 +105,7 @@ function AddPortion({
   return (
     <form onSubmit={onSubmit} className="border-accent flex flex-col gap-2 rounded-xl border p-3">
       <p className="font-bold">{food.name}</p>
+      <Attribution text={food.attribution} />
       <p className="text-muted text-sm">
         La 100 g: {nf1.format(Number(food.kcal_100g))} kcal · P {food.protein_100g} g · C {food.carbs_100g} g
         · G {food.fat_100g} g
@@ -137,6 +139,86 @@ function AddPortion({
         </p>
       )}
     </form>
+  );
+}
+
+function FoodResults({
+  foods,
+  label,
+  onPick,
+}: {
+  foods: Food[];
+  label: string;
+  onPick: (food: Food) => void;
+}) {
+  return (
+    <ul className="flex flex-col gap-2" aria-label={label}>
+      {foods.map((food) => (
+        <li key={food.id}>
+          <button
+            type="button"
+            onClick={() => onPick(food)}
+            className="bg-surface-2 flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left"
+          >
+            <span className="font-semibold">
+              {food.name}
+              {food.is_own && <span className="text-muted ml-2 text-xs">(al tău)</span>}
+            </span>
+            <span className="text-muted shrink-0 text-sm">
+              {nf1.format(Number(food.kcal_100g))} kcal/100 g
+            </span>
+          </button>
+        </li>
+      ))}
+      {foods.length === 0 && <li className="text-muted text-sm">Niciun rezultat.</li>}
+    </ul>
+  );
+}
+
+/** Explicit (not as-you-type) search in Open Food Facts, which limits request rates. */
+function ExternalSearch({ query, onPick }: { query: string; onPick: (food: Food) => void }) {
+  const [foods, setFoods] = useState<Food[] | null>(null);
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string>();
+
+  async function run() {
+    setPending(true);
+    setError(undefined);
+    try {
+      setFoods(await searchExternalFoods(query));
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setPending(false);
+    }
+  }
+
+  if (foods) {
+    return (
+      <div className="flex flex-col gap-2">
+        <p className="text-sm font-semibold">Rezultate Open Food Facts</p>
+        <FoodResults foods={foods} label="Rezultate Open Food Facts" onPick={onPick} />
+        <p className="text-muted text-xs">
+          Date de la{" "}
+          <a href="https://world.openfoodfacts.org" target="_blank" rel="noreferrer" className="underline">
+            Open Food Facts
+          </a>{" "}
+          (licență ODbL), introduse de voluntari: verifică valorile pe etichetă.
+        </p>
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <Button variant="secondary" loading={pending} onClick={run}>
+        Caută „{query}” în Open Food Facts
+      </Button>
+      {error && (
+        <p role="alert" className="text-danger text-sm font-semibold">
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -209,26 +291,16 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
         <AddPortion food={selected.food} initialGrams={selected.grams} date={date} onAdded={reset} />
       ) : (
         results && (
-          <ul className="flex flex-col gap-2" aria-label="Rezultate căutare">
-            {results.map((food) => (
-              <li key={food.id}>
-                <button
-                  type="button"
-                  onClick={() => setSelected({ food })}
-                  className="bg-surface-2 flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-3 text-left"
-                >
-                  <span className="font-semibold">
-                    {food.name}
-                    {food.is_own && <span className="text-muted ml-2 text-xs">(al tău)</span>}
-                  </span>
-                  <span className="text-muted shrink-0 text-sm">
-                    {nf1.format(Number(food.kcal_100g))} kcal/100 g
-                  </span>
-                </button>
-              </li>
-            ))}
-            {results.length === 0 && <li className="text-muted text-sm">Niciun rezultat.</li>}
-          </ul>
+          <>
+            <FoodResults foods={results} label="Rezultate căutare" onPick={(food) => setSelected({ food })} />
+            {query.trim().length >= 3 && (
+              <ExternalSearch
+                key={query.trim()}
+                query={query.trim()}
+                onPick={(food) => setSelected({ food })}
+              />
+            )}
+          </>
         )
       )}
       {!selected &&

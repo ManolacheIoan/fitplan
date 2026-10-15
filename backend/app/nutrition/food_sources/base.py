@@ -16,6 +16,10 @@ class ExternalFood:
     fat_100g: Decimal
 
 
+class FoodSourceError(Exception):
+    """The external database could not be reached or returned unusable data."""
+
+
 class FoodSource(Protocol):
     """Interface every external food database adapter implements.
 

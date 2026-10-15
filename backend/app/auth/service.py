@@ -20,7 +20,7 @@ from app.profile import service as profile_service
 
 # Bump when the privacy policy changes materially; users must then consent again.
 # Keep in sync with the version shown on the frontend privacy page.
-PRIVACY_POLICY_VERSION = "2026-10-v1"
+PRIVACY_POLICY_VERSION = "2026-10-v2"
 
 _hasher = PasswordHasher()  # argon2id with the library's current recommended parameters
 # Guest accounts are temporary: deleted on logout or once their session expires.

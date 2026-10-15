@@ -1,5 +1,6 @@
 """Stores the user's current nutrition targets, always re-running the safety rules."""
 
+import time
 import unicodedata
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -9,9 +10,16 @@ from sqlalchemy import delete, func, or_, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
+from app.common.errors import DomainError
+from app.common.rate_limit import RateLimiter
 from app.config import get_settings
 from app.nutrition import rules
-from app.nutrition.food_sources import get_food_source
+from app.nutrition.food_sources import (
+    ATTRIBUTION,
+    ExternalFood,
+    FoodSourceError,
+    get_food_source,
+)
 from app.nutrition.models import Food, FoodSourceKind, NutritionTarget
 from app.nutrition.schemas import FoodIn, FoodOut, TargetsOut
 from app.profile import screening
@@ -90,6 +98,7 @@ def _visible_to(user_id: int) -> Any:
 def to_out(food: Food, user_id: int) -> FoodOut:
     out = FoodOut.model_validate(food)
     out.is_own = food.owner_user_id == user_id
+    out.attribution = ATTRIBUTION.get(food.external_source or "")
     return out
 
 
@@ -108,11 +117,25 @@ def _search_local(db: Session, user_id: int, term: str, limit: int) -> list[Food
     )
 
 
-def _cache_external(db: Session, term: str, limit: int) -> None:
-    source = get_food_source(get_settings().food_source)
-    if source is None:
-        return
-    items = source.search(term, limit)
+# Open Food Facts allows ~10 searches/min per IP; stay below it for the whole app.
+external_limiter = RateLimiter(limit=8, window_seconds=60)
+external_user_limiter = RateLimiter(limit=4, window_seconds=60)
+SEARCHED_TERM_TTL_SECONDS = 24 * 3600
+_searched_terms: dict[tuple[str, str], float] = {}
+
+
+def _recently_searched(source: str, term: str) -> bool:
+    expires = _searched_terms.get((source, term))
+    return expires is not None and expires > time.monotonic()
+
+
+def reset_external_search_state() -> None:
+    external_limiter.reset()
+    external_user_limiter.reset()
+    _searched_terms.clear()
+
+
+def _cache_external(db: Session, items: list[ExternalFood]) -> None:
     if not items:
         return
     stmt = insert(Food).values(
@@ -136,16 +159,40 @@ def _cache_external(db: Session, term: str, limit: int) -> None:
 
 
 def search_foods(db: Session, user_id: int, query: str, limit: int) -> list[Food]:
-    """Local search first; the external source is asked only when results are few.
+    """Local search only (fast, as-you-type). External databases are searched on demand."""
+    return _search_local(db, user_id, normalize(query), limit)
 
-    External results are cached in `foods`, so later searches stay local.
+
+def search_external(db: Session, user_id: int, query: str, limit: int) -> list[Food]:
+    """Search the configured external database on an explicit user action.
+
+    Results are cached in `foods`; the same term is not sent again for 24 h, and calls are
+    rate-limited per user and for the whole app.
     """
+    source = get_food_source(get_settings().food_source)
+    if source is None:
+        raise DomainError("food_source_disabled", 404)
     term = normalize(query)
-    found = _search_local(db, user_id, term, limit)
-    if len(found) < limit:
-        _cache_external(db, term, limit - len(found))
-        found = _search_local(db, user_id, term, limit)
-    return found
+    if not _recently_searched(source.name, term):
+        if not external_user_limiter.hit(f"user:{user_id}") or not external_limiter.hit("all"):
+            raise DomainError("food_source_busy", 429)
+        try:
+            items = source.search(term, limit)
+        except FoodSourceError:
+            raise DomainError("food_source_unavailable", 503) from None
+        _cache_external(db, items)
+        _searched_terms[(source.name, term)] = time.monotonic() + SEARCHED_TERM_TTL_SECONDS
+    return list(
+        db.scalars(
+            select(Food)
+            .where(
+                Food.external_source == source.name,
+                Food.search_name.contains(term, autoescape=True),
+            )
+            .order_by(func.length(Food.name), Food.name)
+            .limit(limit)
+        )
+    )
 
 
 def create_manual_food(db: Session, user_id: int, data: FoodIn) -> Food:

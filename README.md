@@ -35,7 +35,7 @@ log workouts, food and body weight.
 | Nutrition targets | Mifflin-St Jeor BMR × activity multiplier, moderate deficit/surplus capped by a maximum weekly rate, calorie floor, protein g/kg, minimum fat share, carbs as remainder. Always labelled as approximate. |
 | Gym plan | Rule-based programs chosen by the user or automatically: Full Body (2–3 days), Upper/Lower (2, 4), Push/Pull/Legs (3, 5, 6), Bro Split (5). The plan has exactly one day per training day. 77 curated exercises (English gym names, original Romanian descriptions), each with its own rep scheme (heavy barbell lifts, machine/dumbbell compounds, isolation, hard bodyweight, calves, core, timed holds in seconds), sets adjusted by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
 | Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. Any exercise can be replaced by one with the same movement pattern and a suitable level, either for today only or permanently in the plan (sets/reps follow the new exercise). |
-| Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. External food DB adapter interface + mock only. Entries have a meal category (breakfast, lunch, dinner, snack), preselected from the time of day, and the day view is grouped by category. Recently logged foods are offered as one-tap shortcuts with the last quantity used. |
+| Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. On request (button, not as-you-type), search in **Open Food Facts** (Romanian products, ODbL, attributed); results are cached locally, rate-limited and validated. Entries have a meal category (breakfast, lunch, dinner, snack), preselected from the time of day, and the day view is grouped by category. Recently logged foods are offered as one-tap shortcuts with the last quantity used. |
 | Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week), weekly averages, weight and training-volume charts with a table view. |
 | Settings | Theme (dark default / light), profile edit, retake screening, privacy policy, visible disclaimer on every app page. |
 
@@ -189,7 +189,8 @@ Backend (`backend/.env.example`):
 | `SESSION_TTL_DAYS` | `14` | Session lifetime |
 | `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Attempts per IP and per email per window |
 | `APP_TIMEZONE` | `Europe/Bucharest` | Groups workouts into local weeks |
-| `FOOD_SOURCE` | `none` | External food adapter: `none` or `mock` |
+| `FOOD_SOURCE` | `none` | External food database: `none`, `open_food_facts` (or `mock` in tests) |
+| `OFF_USER_AGENT` | placeholder | Identifies the app to Open Food Facts: `App/Version (contact email)` |
 | `FEATURE_AI_MEAL_PARSING` | `false` | V2 placeholder; keep `false` |
 
 Frontend (`frontend/.env.example`): `DEV_API_URL` (dev proxy target) and `BACKEND_URL`
@@ -375,8 +376,8 @@ implements the formulas correctly, not that the constants are right for users.
   sedentary users. The UI says so when the floor is applied.
 - Protein uses total body weight. At high BMI this may overestimate needs (flagged for review).
 - Bodyweight exercises are logged with 0 kg extra load, so they add no training volume.
-- Demo foods are rounded reference values. Connecting a real database requires following
-  [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
+- Demo foods are rounded reference values. Open Food Facts data is crowd-sourced and may
+  contain errors; see [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
 - The rate limiter is in memory (single instance). Behind proxies the per-IP limit relies on
   `X-Forwarded-For`, which can be spoofed; the per-email limit still applies.
 - The privacy policy contains placeholders for operator identity and contact, and needs

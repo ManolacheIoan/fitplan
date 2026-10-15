@@ -12,6 +12,8 @@ os.environ.setdefault(
 )
 os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
 os.environ.setdefault("SECRET_KEY", "test-secret")
+# Tests never call external services, whatever the local .env says.
+os.environ["FOOD_SOURCE"] = "none"
 
 import pytest
 from alembic import command
@@ -24,6 +26,7 @@ from app.auth.router import login_limiter, register_limiter
 from app.common.db import get_db, get_engine
 from app.common.security import CSRF_COOKIE, CSRF_HEADER
 from app.main import create_app
+from app.nutrition.service import reset_external_search_state
 from seed.__main__ import seed_exercises, seed_foods
 
 API = "/api/v1"
@@ -56,6 +59,7 @@ def db() -> Iterator[Session]:
 def _reset_rate_limits() -> None:
     login_limiter.reset()
     register_limiter.reset()
+    reset_external_search_state()
 
 
 @pytest.fixture
