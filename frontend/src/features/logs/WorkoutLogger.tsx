@@ -215,6 +215,7 @@ function ExerciseCard({
 }) {
   const { planned, sets, last_sets: last } = item;
   const [swapping, setSwapping] = useState(false);
+  const [record, setRecord] = useState<string>();
   // Replacing is only possible before logging sets, so logged sets never disappear.
   const canSwap = !finished && sets.length === 0;
   const measure = measureOf(planned.exercise);
@@ -292,6 +293,14 @@ function ExerciseCard({
           ))}
         </ol>
       )}
+      {record && (
+        <p
+          role="status"
+          className="bg-accent text-accent-fg animate-pop rounded-xl p-3 text-center font-black"
+        >
+          Record personal nou: {record}!
+        </p>
+      )}
       <SetForm
         key={sets.length}
         measure={measure}
@@ -299,7 +308,8 @@ function ExerciseCard({
         initialReps={defaultReps}
         submitLabel="+ Serie"
         onSubmit={async (weight, reps) => {
-          await addSet(workoutId, planned.exercise.id, weight, reps);
+          const logged = await addSet(workoutId, planned.exercise.id, weight, reps);
+          setRecord(logged.is_record ? `${nf1.format(weight)} kg` : undefined);
           onChange();
         }}
       />

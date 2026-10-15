@@ -9,6 +9,7 @@ import { EmptyState, ErrorState, Loading } from "@/components/ui/States";
 import { formatDay, nf1, todayLocal } from "@/lib/dates";
 import { errorMessage } from "@/lib/errors";
 import { useApi } from "@/lib/use-api";
+import { Records } from "./Records";
 import { deleteWeight, saveWeight, type VolumeProgress, type WeightProgress } from "./api";
 
 const WeightChart = dynamic(() => import("./Charts").then((m) => m.WeightChart), {
@@ -209,6 +210,7 @@ export function Progress() {
           </>
         )}
       </Card>
+      <Records />
     </div>
   );
 }

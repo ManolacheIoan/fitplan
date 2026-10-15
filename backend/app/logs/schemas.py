@@ -59,6 +59,11 @@ class SetOut(BaseModel):
     reps: int
 
 
+class SetLoggedOut(SetOut):
+    # True when this set beats the user's previous heaviest weight for the exercise.
+    is_record: bool
+
+
 class LastSetOut(BaseModel):
     weight_kg: Decimal
     reps: int
@@ -180,3 +185,11 @@ class WeeklyVolume(BaseModel):
 
 class VolumeProgressOut(BaseModel):
     weekly: list[WeeklyVolume]
+
+
+class PersonalRecordOut(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    weight_kg: Decimal
+    reps: int
+    achieved_on: datetime
