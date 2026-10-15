@@ -29,7 +29,7 @@ export default function Home() {
           <span className="text-gradient">cu un plan.</span>
         </h1>
         <p className="text-muted mt-4 text-lg">
-          Pentru adulți care vor să slăbească, să își mențină greutatea sau să câștige masă musculară.
+          Pentru cei care vor să slăbească, să își mențină greutatea sau să câștige masă musculară.
         </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Link
