@@ -46,7 +46,8 @@ export function GuestButton() {
       <p className="text-sm">
         <span className="font-bold">Fără email și parolă.</span>{" "}
         <span className="text-muted">
-          Datele se șterg definitiv când ieși sau după {GUEST_DAYS} zile și nu pot fi mutate într-un cont.
+          Datele se șterg definitiv când ieși. Dacă nu ieși, contul expiră după {GUEST_DAYS} zile și e șters
+          la curățarea automată următoare. Datele nu pot fi mutate într-un cont.
         </span>
       </p>
       <Checkbox name="consent" required label={<ConsentText />} />

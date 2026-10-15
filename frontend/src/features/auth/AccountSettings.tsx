@@ -141,8 +141,8 @@ export function AccountSettings() {
           <p className="text-sm">
             <span className="font-bold">Cont vizitator.</span>{" "}
             <span className="text-muted">
-              Datele se șterg definitiv când ieși sau după {GUEST_DAYS} zile. Pentru a le păstra, creează un
-              cont cu email și parolă.
+              Datele se șterg definitiv când ieși; altfel, contul expiră după {GUEST_DAYS} zile și e șters la
+              curățarea automată următoare. Pentru a le păstra, creează un cont cu email și parolă.
             </span>
           </p>
         ) : (
