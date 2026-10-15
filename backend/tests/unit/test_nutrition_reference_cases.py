@@ -1,7 +1,7 @@
 """Reference cases recomputed independently (exact fractions, without FitPlan code).
 
 The same cases are listed in the README ("How I validated the formulas") so they can be
-compared with a trusted public Mifflin-St Jeor calculator.
+compared with a public Mifflin-St Jeor calculator (not done yet).
 """
 
 import pytest
