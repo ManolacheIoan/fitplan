@@ -87,13 +87,18 @@ def create_guest(db: Session) -> User:
     return user
 
 
-def purge_expired_guests(db: Session) -> None:
-    """Hard-delete guests without a valid session (their data goes with them)."""
+def purge_expired_guests(db: Session) -> int:
+    """Hard-delete guests without a valid session (their data goes with them).
+
+    Runs on login, registration and guest start, and daily via the protected maintenance
+    endpoint called by a scheduled GitHub Actions workflow. Returns the number deleted.
+    """
     active = select(UserSession.id).where(
         UserSession.user_id == User.id, UserSession.expires_at > datetime.now(UTC)
     )
-    db.execute(delete(User).where(User.is_guest, ~active.exists()))
+    result = db.execute(delete(User).where(User.is_guest, ~active.exists()))
     db.commit()
+    return result.rowcount
 
 
 def create_session(db: Session, user: User) -> str:
