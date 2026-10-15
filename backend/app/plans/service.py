@@ -6,13 +6,20 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session, selectinload
 
 from app.plans import generator
-from app.plans.models import Exercise, Plan, PlanDay, PlanExercise, Template
+from app.plans.models import Exercise, Plan, PlanDay, PlanExercise, RepScheme, Template
 from app.plans.schemas import PlanOut
 from app.profile.models import Profile, ScreeningStatus
 
 # One query per level (plans -> days -> exercises); exercises join their library row.
 _FULL = selectinload(Plan.days).selectinload(PlanDay.exercises)
 DAY_EXERCISES = selectinload(PlanDay.exercises)
+
+
+def is_loadable(exercise: Exercise) -> bool:
+    """Whether adding external weight is the natural progression for the exercise."""
+    if exercise.rep_scheme is RepScheme.TIMED:
+        return False
+    return exercise.equipment != "bodyweight" or exercise.rep_scheme is RepScheme.STRENGTH
 
 
 def active(db: Session, user_id: int) -> Plan | None:

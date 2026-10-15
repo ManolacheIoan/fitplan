@@ -4,7 +4,10 @@ import type { PlanDay, PlanExercise } from "@/features/plans/api";
 
 export type SetLog = { id: number; exercise_id: number; set_number: number; weight_kg: string; reps: number };
 
-export type Suggestion = { kind: "first_time" | "add_weight" | "add_reps"; weight_kg: string | null };
+export type Suggestion = {
+  kind: "first_time" | "add_weight" | "add_reps" | "max_reached";
+  weight_kg: string | null;
+};
 
 export type WorkoutExercise = {
   planned: PlanExercise;

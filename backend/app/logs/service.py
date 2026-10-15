@@ -151,6 +151,7 @@ def _workout_exercise(
         planned.reps_max,
         planned.exercise.pattern,
         planned.exercise.is_compound,
+        loadable=plans_service.is_loadable(planned.exercise),
     )
     return WorkoutExerciseOut(
         planned=PlanExerciseOut.model_validate(planned),

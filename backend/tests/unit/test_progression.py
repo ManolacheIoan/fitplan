@@ -44,3 +44,8 @@ def test_only_heaviest_sets_count():
     # Lighter warm-up sets with fewer reps do not block progression.
     s = suggest(sets(("40", 5), ("60", 12), ("60", 12)), 12, Pattern.HINGE, True)
     assert s.kind == "add_weight"
+
+
+def test_unloaded_exercise_at_top_of_range_suggests_harder_variant():
+    s = suggest(sets(("0", 45), ("0", 45)), 45, Pattern.CORE, False, loadable=False)
+    assert s.kind == "max_reached"

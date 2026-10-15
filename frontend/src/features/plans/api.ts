@@ -6,6 +6,9 @@ export type Exercise = {
   name: string;
   description: string;
   pattern: string;
+  rep_scheme: string;
+  /** What reps_min / reps_max mean for this exercise. */
+  unit: "reps" | "seconds";
   primary_muscle: string;
   secondary_muscles: string[];
   equipment: string;

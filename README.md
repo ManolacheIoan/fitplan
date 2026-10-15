@@ -33,7 +33,7 @@ log workouts, food and body weight.
 | Onboarding | Name, biological sex (for the formula only), birth date (18+ enforced server-side), height, weight, activity level, goal, 2–6 training days, experience, equipment (gym). |
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
 | Nutrition targets | Mifflin-St Jeor BMR × activity multiplier, moderate deficit/surplus capped by a maximum weekly rate, calorie floor, protein g/kg, minimum fat share, carbs as remainder. Always labelled as approximate. |
-| Gym plan | Rule-based templates (full body 2–3 days, upper/lower 4, push/pull/legs 5–6), 77 curated exercises with original Romanian descriptions, sets/reps/rest by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
+| Gym plan | Rule-based programs chosen by the user or automatically: Full Body (2–3 days), Upper/Lower (2, 4), Push/Pull/Legs (3, 5, 6), Bro Split (5). The plan has exactly one day per training day. 77 curated exercises (English gym names, original Romanian descriptions), each with its own rep scheme (heavy barbell lifts, machine/dumbbell compounds, isolation, hard bodyweight, calves, core, timed holds in seconds), sets adjusted by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
 | Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. |
 | Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. External food DB adapter interface + mock only. |
 | Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week), weekly averages, weight and training-volume charts with a table view. |
@@ -322,7 +322,7 @@ All of them are in **two files**, with comments:
   minimum age, BMI threshold, Mifflin-St Jeor coefficients, activity multipliers,
   deficit/surplus fractions, maximum weekly loss/gain, kcal per kg, calorie floors,
   protein g/kg, minimum fat share.
-- [`backend/app/plans/constants.py`](backend/app/plans/constants.py): sets/reps/rest by
+- [`backend/app/plans/constants.py`](backend/app/plans/constants.py): sets/reps/rest per rep scheme and
   goal and experience, exercises per session, overload increments, split templates.
 
 Also to review: the screening question wording (`frontend/src/features/profile/ScreeningForm.tsx`)

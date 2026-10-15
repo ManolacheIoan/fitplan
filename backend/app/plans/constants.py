@@ -8,17 +8,36 @@
 from typing import Final
 
 from app.plans.models import Pattern as P
-from app.plans.models import Template
+from app.plans.models import RepScheme, Template
 from app.profile.models import Experience, Goal
 
 # --- Sets / reps / rest ----------------------------------------------------------------------
-# (sets, reps_min, reps_max, rest_seconds) by goal, for compound and isolation exercises.
-PRESCRIPTION: Final = {
-    Goal.LOSE: {"compound": (3, 8, 12, 90), "isolation": (3, 12, 15, 60)},
-    Goal.MAINTAIN: {"compound": (3, 8, 12, 90), "isolation": (3, 10, 15, 60)},
-    Goal.GAIN: {"compound": (4, 6, 10, 120), "isolation": (3, 8, 12, 75)},
+# (sets, reps_min, reps_max, rest_seconds) per rep scheme and goal. For TIMED the "reps"
+# are seconds held.
+_ALL_GOALS = (Goal.LOSE, Goal.MAINTAIN, Goal.GAIN)
+PRESCRIPTION: Final[dict[RepScheme, dict[Goal, tuple[int, int, int, int]]]] = {
+    RepScheme.STRENGTH: {
+        Goal.LOSE: (3, 6, 10, 120),
+        Goal.MAINTAIN: (3, 6, 10, 120),
+        Goal.GAIN: (4, 5, 8, 150),
+    },
+    RepScheme.COMPOUND: {
+        Goal.LOSE: (3, 8, 12, 90),
+        Goal.MAINTAIN: (3, 8, 12, 90),
+        Goal.GAIN: (4, 8, 12, 90),
+    },
+    RepScheme.ISOLATION: {
+        Goal.LOSE: (3, 12, 15, 60),
+        Goal.MAINTAIN: (3, 10, 15, 60),
+        Goal.GAIN: (3, 10, 15, 60),
+    },
+    RepScheme.BODYWEIGHT_HARD: dict.fromkeys(_ALL_GOALS, (3, 5, 10, 90)),
+    RepScheme.CALVES: dict.fromkeys(_ALL_GOALS, (3, 12, 20, 60)),
+    RepScheme.CORE: dict.fromkeys(_ALL_GOALS, (3, 10, 15, 45)),
+    RepScheme.TIMED: dict.fromkeys(_ALL_GOALS, (3, 20, 45, 45)),
 }
-# Added to the number of sets of compound exercises (never below MIN_SETS).
+# Experience changes the number of sets of these schemes (never below MIN_SETS).
+SET_ADJUSTED_SCHEMES: Final = {RepScheme.STRENGTH, RepScheme.COMPOUND}
 SET_ADJUSTMENT: Final = {
     Experience.BEGINNER: -1,
     Experience.INTERMEDIATE: 0,

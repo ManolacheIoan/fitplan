@@ -46,9 +46,8 @@ def candidates_by_pattern(
 
 
 def prescription(exercise: Exercise, goal: Goal, experience: Experience) -> Prescription:
-    role = "compound" if exercise.is_compound else "isolation"
-    sets, reps_min, reps_max, rest = c.PRESCRIPTION[goal][role]
-    if exercise.is_compound:
+    sets, reps_min, reps_max, rest = c.PRESCRIPTION[exercise.rep_scheme][goal]
+    if exercise.rep_scheme in c.SET_ADJUSTED_SCHEMES:
         sets = max(c.MIN_SETS, sets + c.SET_ADJUSTMENT[experience])
     return Prescription(exercise, sets, reps_min, reps_max, rest)
 

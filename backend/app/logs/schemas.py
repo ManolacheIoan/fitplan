@@ -18,7 +18,8 @@ def _sane_log_date(value: date) -> date:
 
 LogDate = Annotated[date, AfterValidator(_sane_log_date)]
 LoadKg = Annotated[Decimal, Field(ge=0, le=500, decimal_places=2)]
-Reps = Annotated[int, Field(ge=1, le=100)]
+# Repetitions, or seconds held for timed exercises.
+Reps = Annotated[int, Field(ge=1, le=300)]
 BodyWeightKg = Annotated[
     Decimal, Field(ge=WEIGHT_KG_RANGE[0], le=WEIGHT_KG_RANGE[1], decimal_places=1)
 ]
@@ -59,7 +60,7 @@ class LastSetOut(BaseModel):
 
 
 class SuggestionOut(BaseModel):
-    kind: Literal["first_time", "add_weight", "add_reps"]
+    kind: Literal["first_time", "add_weight", "add_reps", "max_reached"]
     weight_kg: Decimal | None
 
 

@@ -15,6 +15,7 @@ FIELDS = (
     "slug",
     "name",
     "pattern",
+    "rep_scheme",
     "primary_muscle",
     "secondary_muscles",
     "equipment",

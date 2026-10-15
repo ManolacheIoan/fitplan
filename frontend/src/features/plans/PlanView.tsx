@@ -10,6 +10,7 @@ export function ExerciseRow({ item }: { item: PlanExercise }) {
         <span className="font-bold">{exercise.name}</span>
         <span className="text-accent-text shrink-0 text-sm font-extrabold">
           {item.sets} × {reps(item.reps_min, item.reps_max)}
+          {exercise.unit === "seconds" && " s"}
         </span>
       </summary>
       <div className="text-muted mt-2 flex flex-col gap-2 text-sm">

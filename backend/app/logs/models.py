@@ -49,7 +49,8 @@ class SetLog(Base):
         Index("ix_set_logs_session_id", "session_id"),
         Index("ix_set_logs_exercise_id", "exercise_id"),
         CheckConstraint("weight_kg BETWEEN 0 AND 500", name="weight_range"),
-        CheckConstraint("reps BETWEEN 1 AND 100", name="reps_range"),
+        # Repetitions, or seconds held for timed exercises.
+        CheckConstraint("reps BETWEEN 1 AND 300", name="reps_range"),
         CheckConstraint("set_number BETWEEN 1 AND 20", name="set_number_range"),
     )
 

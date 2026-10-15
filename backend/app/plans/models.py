@@ -38,6 +38,18 @@ class Pattern(StrEnum):
     CORE = "core"
 
 
+class RepScheme(StrEnum):
+    """How an exercise is prescribed; values live in plans/constants.py PRESCRIPTION."""
+
+    STRENGTH = "strength"  # heavy barbell lifts: fewer reps, longer rest
+    COMPOUND = "compound"  # machine / dumbbell multi-joint
+    ISOLATION = "isolation"  # single-joint
+    BODYWEIGHT_HARD = "bodyweight_hard"  # pull-ups, dips, nordics: low rep counts
+    CALVES = "calves"
+    CORE = "core"
+    TIMED = "timed"  # held for time (plank): "reps" are seconds
+
+
 class Template(StrEnum):
     FULL_BODY = "full_body"
     UPPER_LOWER = "upper_lower"
@@ -53,6 +65,7 @@ class Exercise(Base):
     name: Mapped[str] = mapped_column(String(100))
     description: Mapped[str] = mapped_column(Text)
     pattern: Mapped[Pattern] = mapped_column(str_enum(Pattern))
+    rep_scheme: Mapped[RepScheme] = mapped_column(str_enum(RepScheme))
     primary_muscle: Mapped[str] = mapped_column(String(16))
     secondary_muscles: Mapped[list[str]] = mapped_column(ARRAY(String(16)))
     # Equipment type of the exercise itself (all are available in a regular gym).
@@ -110,7 +123,8 @@ class PlanExercise(Base):
     __table_args__ = (
         UniqueConstraint("plan_day_id", "position"),
         CheckConstraint("sets BETWEEN 1 AND 10", name="sets_range"),
-        CheckConstraint("reps_min >= 1 AND reps_min <= reps_max AND reps_max <= 30", name="reps"),
+        # Seconds for timed exercises, hence the upper bound above typical rep counts.
+        CheckConstraint("reps_min >= 1 AND reps_min <= reps_max AND reps_max <= 120", name="reps"),
         CheckConstraint("rest_seconds BETWEEN 30 AND 300", name="rest_range"),
     )
 
