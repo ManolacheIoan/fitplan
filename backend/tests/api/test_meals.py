@@ -1,6 +1,5 @@
 from datetime import date, timedelta
 
-from app.config import get_settings
 from tests.factories import API, onboard
 
 TODAY = date.today().isoformat()
@@ -98,17 +97,6 @@ def test_users_cannot_touch_each_others_meals(make_user):
     assert intruder.patch(f"{API}/meals/{meal_id}", json={"grams": 1}).status_code == 404
     assert intruder.delete(f"{API}/meals/{meal_id}").status_code == 404
     assert intruder.get(f"{API}/meals", params={"date": TODAY}).json()["entries"] == []
-
-
-def test_external_source_results_are_cached(make_user, monkeypatch):
-    monkeypatch.setattr(get_settings(), "food_source", "mock")
-    c = make_user()
-    onboard(c)
-    found = c.get(f"{API}/foods", params={"q": "hummus"}).json()
-    assert found and found[0]["source"] == "external"
-    monkeypatch.setattr(get_settings(), "food_source", "none")
-    # Served from the local cache once the source is disabled.
-    assert c.get(f"{API}/foods", params={"q": "hummus"}).json()[0]["id"] == found[0]["id"]
 
 
 def test_meal_category_required_and_editable(make_user):

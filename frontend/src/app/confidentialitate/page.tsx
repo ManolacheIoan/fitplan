@@ -43,6 +43,7 @@ const SECTIONS: [string, string[]][] = [
     "Unde sunt stocate",
     [
       "Baza de date și serverul aplicației rulează în regiunea UE (Frankfurt). Interfața web este servită printr-o rețea de distribuție (CDN), prin care trec și cererile către server.",
+      "Când apeși „Caută în Open Food Facts”, textul căutat (de ex. „iaurt”) este trimis serviciului Open Food Facts. Nu trimitem email, nume sau alte date despre tine. Produsele găsite sunt salvate în baza aplicației pentru căutări viitoare.",
     ],
   ],
   [

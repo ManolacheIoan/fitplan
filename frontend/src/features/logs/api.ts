@@ -47,6 +47,8 @@ export type Food = {
   fat_100g: string;
   source: "seed" | "manual" | "external";
   is_own: boolean;
+  /** Required credit for external data, e.g. "Open Food Facts (ODbL)". */
+  attribution: string | null;
 };
 
 export type FoodInput = {
@@ -86,6 +88,7 @@ export const updateSet = (id: number, weight_kg: number, reps: number) =>
 export const deleteSet = (id: number) => api<void>(`/sets/${id}`, { method: "DELETE" });
 
 export const searchFoods = (q: string) => api<Food[]>(`/foods?q=${encodeURIComponent(q)}`);
+export const searchExternalFoods = (q: string) => api<Food[]>(`/foods/external?q=${encodeURIComponent(q)}`);
 export const createFood = (data: FoodInput) => api<Food>("/foods", { method: "POST", ...json(data) });
 export const addMeal = (food_id: number, eaten_on: string, grams: number, meal_type: MealType) =>
   api<Meal>("/meals", { method: "POST", ...json({ food_id, eaten_on, grams, meal_type }) });

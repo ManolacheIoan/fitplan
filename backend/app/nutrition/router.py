@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.common.db import get_db
+from app.common.errors import DomainError
 from app.nutrition import service
 from app.nutrition.schemas import FoodIn, FoodOut, TargetsOut, TargetsResponse
 from app.profile.dependencies import ready_profile
@@ -31,6 +32,21 @@ def search_foods(
     db: Session = Depends(get_db),
 ) -> list[FoodOut]:
     foods = service.search_foods(db, profile.user_id, q, limit)
+    return [service.to_out(f, profile.user_id) for f in foods]
+
+
+@router.get("/foods/external")
+def search_external_foods(
+    q: Annotated[str, Query(min_length=3, max_length=60)],
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+    profile: Profile = Depends(ready_profile),
+    db: Session = Depends(get_db),
+) -> list[FoodOut]:
+    """Explicit search in the external food database (not as-you-type)."""
+    try:
+        foods = service.search_external(db, profile.user_id, q, limit)
+    except DomainError as e:
+        raise HTTPException(e.status, e.code) from None
     return [service.to_out(f, profile.user_id) for f in foods]
 
 
