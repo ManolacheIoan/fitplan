@@ -1,0 +1,31 @@
+# Render Blueprint for the backend (free plan, Frankfurt / EU).
+services:
+  - type: web
+    name: fitplan-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Free instances have no pre-deploy step: migrations and the (idempotent) seed run at start.
+    # --no-access-log: request lines are not written to the logs.
+    startCommand: >-
+      alembic upgrade head && python -m seed &&
+      uvicorn app.main:app --host 0.0.0.0 --port $PORT
+      --proxy-headers --forwarded-allow-ips='*' --no-access-log
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.13.2"
+      - key: DATABASE_URL
+        sync: false # Neon connection string (EU region)
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        sync: false # e.g. https://fitplan.netlify.app
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: FOOD_SOURCE
+        value: none
+      - key: FEATURE_AI_MEAL_PARSING
+        value: "false"

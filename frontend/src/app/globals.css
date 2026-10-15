@@ -1,0 +1,85 @@
+@import "tailwindcss";
+
+/* Dark is the default theme; [data-theme="light"] on <html> switches to light. */
+:root {
+  color-scheme: dark;
+  --bg: #0b0d10;
+  --surface: #15181d;
+  --surface-2: #1e232a;
+  --border: #2c333c;
+  --fg: #f2f4f7;
+  --muted: #a3acb9;
+  --accent: #c8f031;
+  --accent-fg: #0b0d10;
+  --accent-text: #c8f031;
+  --danger: #ff7a7a;
+  --warning: #ffc857;
+  /* Chart series, validated for CVD separation and lightness against --surface. */
+  --chart-1: #77a000;
+  --chart-2: #4f8de6;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --border: #d3d8df;
+  --fg: #0e1116;
+  --muted: #4a5361;
+  --accent: #c8f031;
+  --accent-fg: #0b0d10;
+  /* The lime fill is too light for text on white; use a darker shade for accent text. */
+  --accent-text: #3f5c00;
+  --danger: #b42318;
+  --warning: #8a5a00;
+  --chart-1: #4d7a00;
+  --chart-2: #2f6fdf;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-text: var(--accent-text);
+  --color-danger: var(--danger);
+  --color-warning: var(--warning);
+  --font-sans: var(--font-archivo);
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+:focus-visible {
+  outline: 3px solid var(--accent-text);
+  outline-offset: 2px;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 200ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
