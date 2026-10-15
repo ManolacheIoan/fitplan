@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/Button";
 import { ChoiceGroup, TextField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/errors";
 import { nf1 } from "@/lib/dates";
-import { addMeal, createFood, searchFoods, type Food } from "./api";
+import { useApi } from "@/lib/use-api";
+import { addMeal, createFood, searchFoods, type Food, type RecentFood } from "./api";
 import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
 const SEARCH_DELAY_MS = 300;
@@ -73,7 +74,17 @@ function ManualFoodForm({
   );
 }
 
-function AddPortion({ food, date, onAdded }: { food: Food; date: string; onAdded: () => void }) {
+function AddPortion({
+  food,
+  date,
+  initialGrams = "100",
+  onAdded,
+}: {
+  food: Food;
+  date: string;
+  initialGrams?: string;
+  onAdded: () => void;
+}) {
   const [error, setError] = useState<string>();
   const [pending, setPending] = useState(false);
 
@@ -114,7 +125,7 @@ function AddPortion({ food, date, onAdded }: { food: Food; date: string; onAdded
           max={5000}
           step={1}
           required
-          defaultValue={100}
+          defaultValue={initialGrams}
         />
         <Button type="submit" loading={pending}>
           Adaugă
@@ -133,7 +144,8 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Food[] | null>(null);
   const [searchError, setSearchError] = useState<string>();
-  const [selected, setSelected] = useState<Food | null>(null);
+  const [selected, setSelected] = useState<{ food: Food; grams?: string } | null>(null);
+  const recent = useApi<RecentFood[]>("/meals/recent");
   const [manual, setManual] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -160,6 +172,7 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
     setResults(null);
     setSelected(null);
     setManual(false);
+    recent.reload();
     onAdded();
   }
 
@@ -174,8 +187,26 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
         autoComplete="off"
       />
       {searchError && <p className="text-danger text-sm">{searchError}</p>}
+      {!selected && !query && !manual && recent.data && recent.data.length > 0 && (
+        <div>
+          <p className="text-muted mb-2 text-sm font-semibold">Recente</p>
+          <ul className="flex flex-wrap gap-2" aria-label="Alimente recente">
+            {recent.data.map(({ food, grams }) => (
+              <li key={food.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelected({ food, grams })}
+                  className="border-border bg-surface-2 hover:border-accent min-h-11 rounded-full border px-4 text-sm font-semibold transition active:scale-[0.97]"
+                >
+                  {food.name} · {nf1.format(Number(grams))} g
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       {selected ? (
-        <AddPortion food={selected} date={date} onAdded={reset} />
+        <AddPortion food={selected.food} initialGrams={selected.grams} date={date} onAdded={reset} />
       ) : (
         results && (
           <ul className="flex flex-col gap-2" aria-label="Rezultate căutare">
@@ -183,7 +214,7 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
               <li key={food.id}>
                 <button
                   type="button"
-                  onClick={() => setSelected(food)}
+                  onClick={() => setSelected({ food })}
                   className="bg-surface-2 flex min-h-12 w-full items-center justify-between gap-2 rounded-xl px-3 text-left"
                 >
                   <span className="font-semibold">
@@ -206,7 +237,7 @@ export function FoodPicker({ date, onAdded }: { date: string; onAdded: () => voi
             initialName={query}
             onCreated={(food) => {
               setManual(false);
-              setSelected(food);
+              setSelected({ food });
             }}
           />
         ) : (

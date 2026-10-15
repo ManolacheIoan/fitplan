@@ -128,3 +128,27 @@ def test_meal_category_required_and_editable(make_user):
     assert kept["meal_type"] == "snack"
     entries = c.get(f"{API}/meals", params={"date": TODAY}).json()["entries"]
     assert [e["meal_type"] for e in entries] == ["snack"]
+
+
+def test_recent_foods_distinct_most_recent_first(make_user):
+    c = make_user()
+    onboard(c)
+    banana = c.get(f"{API}/foods", params={"q": "banana"}).json()[0]["id"]
+    oats = c.get(f"{API}/foods", params={"q": "ovaz"}).json()[0]["id"]
+    for food_id, grams in ((banana, 100), (oats, 40), (banana, 120)):
+        body = {"meal_type": "snack", "food_id": food_id, "eaten_on": TODAY, "grams": grams}
+        assert c.post(f"{API}/meals", json=body).status_code == 201
+    recent = c.get(f"{API}/meals/recent").json()
+    assert [(r["food"]["id"], r["grams"]) for r in recent] == [(banana, "120.0"), (oats, "40.0")]
+    assert len(c.get(f"{API}/meals/recent", params={"limit": 1}).json()) == 1
+    assert c.get(f"{API}/meals/recent", params={"limit": 99}).status_code == 422
+
+
+def test_recent_foods_are_private(make_user):
+    owner, other = make_user(), make_user()
+    onboard(owner)
+    onboard(other)
+    banana = owner.get(f"{API}/foods", params={"q": "banana"}).json()[0]["id"]
+    body = {"meal_type": "snack", "food_id": banana, "eaten_on": TODAY, "grams": 100}
+    owner.post(f"{API}/meals", json=body)
+    assert other.get(f"{API}/meals/recent").json() == []

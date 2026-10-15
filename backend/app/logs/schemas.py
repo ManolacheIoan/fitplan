@@ -142,6 +142,12 @@ class MealOut(Macros):
     meal_type: MealType | None
 
 
+class RecentFoodOut(BaseModel):
+    food: FoodOut
+    # Quantity used the last time, to prefill the form.
+    grams: Decimal
+
+
 class DayMealsOut(BaseModel):
     date: date
     entries: list[MealOut]
