@@ -21,6 +21,7 @@ from app.logs.schemas import (
     Macros,
     MealOut,
     PersonalRecordOut,
+    RecentFoodOut,
     SetOut,
     SuggestionOut,
     VolumeProgressOut,
@@ -490,6 +491,28 @@ def delete_meal(db: Session, user_id: int, meal_id: int) -> None:
     meal, _ = _own_meal(db, user_id, meal_id)
     db.delete(meal)
     db.commit()
+
+
+def recent_foods(db: Session, user_id: int, limit: int) -> list[RecentFoodOut]:
+    """Distinct foods the user logged most recently, with the last quantity used."""
+    # Ids grow with insertion order, so they order entries even within one transaction.
+    latest = (
+        select(MealLog.food_id, MealLog.grams, MealLog.id)
+        .where(MealLog.user_id == user_id)
+        .order_by(MealLog.food_id, MealLog.id.desc())
+        .distinct(MealLog.food_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(Food, latest.c.grams)
+        .join(latest, latest.c.food_id == Food.id)
+        .order_by(latest.c.id.desc())
+        .limit(limit)
+    )
+    return [
+        RecentFoodOut(food=nutrition_service.to_out(food, user_id), grams=grams)
+        for food, grams in rows
+    ]
 
 
 def meals_for_day(db: Session, user_id: int, day: date) -> DayMealsOut:

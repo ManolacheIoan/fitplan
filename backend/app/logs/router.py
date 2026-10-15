@@ -15,6 +15,7 @@ from app.logs.schemas import (
     MealOut,
     MealUpdate,
     PersonalRecordOut,
+    RecentFoodOut,
     SetIn,
     SetLoggedOut,
     SetOut,
@@ -139,6 +140,13 @@ def meals_for_day(
     day: Annotated[LogDate, Query(alias="date")], profile: Ready, db: Db
 ) -> DayMealsOut:
     return service.meals_for_day(db, profile.user_id, day)
+
+
+@router.get("/meals/recent")
+def recent_foods(
+    profile: Ready, db: Db, limit: Annotated[int, Query(ge=1, le=20)] = 8
+) -> list[RecentFoodOut]:
+    return service.recent_foods(db, profile.user_id, limit)
 
 
 @router.post("/meals", status_code=status.HTTP_201_CREATED)

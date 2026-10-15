@@ -72,6 +72,9 @@ test("register → onboarding → plan → log workout → log food → progress
   await page.getByRole("button", { name: "Adaugă", exact: true }).click();
   await expect(page.getByText("50 g · 189,5 kcal")).toBeVisible();
   await expect(page.getByRole("progressbar", { name: "Calorii" })).toBeVisible();
+  // The food just logged is offered under "Recente" with the same quantity.
+  await page.getByRole("button", { name: /Fulgi de ovăz · 50 g/ }).click();
+  await expect(page.getByLabel("Cantitate (g)")).toHaveValue("50.0");
 
   // Progress
   await page.getByRole("link", { name: "Progres" }).click();

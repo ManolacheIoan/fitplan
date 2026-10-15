@@ -65,6 +65,7 @@ export type Meal = Macros & {
   grams: string;
   meal_type: MealType | null; // null for entries logged before categories existed
 };
+export type RecentFood = { food: Food; grams: string };
 export type DayMeals = { date: string; entries: Meal[]; totals: Macros; targets: Targets | null };
 
 export const startWorkout = (plan_day_id: number) =>
