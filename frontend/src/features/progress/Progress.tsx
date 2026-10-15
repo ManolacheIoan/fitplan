@@ -20,7 +20,12 @@ const VolumeChart = dynamic(() => import("./Charts").then((m) => m.VolumeChart),
   loading: () => <Loading />,
 });
 
-const RANGES = [4, 12, 26];
+// Period shown in the charts below (weeks requested from the API).
+const RANGES = [
+  { weeks: 4, label: "1 lună" },
+  { weeks: 12, label: "3 luni" },
+  { weeks: 26, label: "6 luni" },
+];
 
 function WeightForm({ onSaved }: { onSaved: (targetsUpdated: boolean) => void }) {
   const [pending, setPending] = useState(false);
@@ -137,19 +142,22 @@ export function Progress() {
         )}
       </Card>
 
-      <div role="group" aria-label="Interval" className="grid grid-cols-3 gap-2">
-        {RANGES.map((w) => (
-          <button
-            key={w}
-            type="button"
-            aria-pressed={weeks === w}
-            onClick={() => setWeeks(w)}
-            className="aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-fg border-border min-h-12 rounded-xl border text-sm font-bold"
-          >
-            {w} săpt.
-          </button>
-        ))}
-      </div>
+      <fieldset>
+        <legend className="mb-2 text-sm font-semibold">Perioada afișată în grafice</legend>
+        <div className="grid grid-cols-3 gap-2">
+          {RANGES.map(({ weeks: w, label }) => (
+            <button
+              key={w}
+              type="button"
+              aria-pressed={weeks === w}
+              onClick={() => setWeeks(w)}
+              className="aria-pressed:border-accent aria-pressed:bg-accent aria-pressed:text-accent-fg border-border min-h-12 rounded-xl border text-sm font-bold"
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </fieldset>
 
       <Card>
         <h2 className="mb-3 text-lg font-extrabold">Evoluția greutății</h2>
