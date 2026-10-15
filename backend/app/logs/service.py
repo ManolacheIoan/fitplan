@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.common.errors import DomainError
 from app.config import get_settings
-from app.logs.models import MealLog, SetLog, WeightLog, WorkoutSession, WorkoutSwap
+from app.logs.models import MealLog, MealType, SetLog, WeightLog, WorkoutSession, WorkoutSwap
 from app.logs.schemas import (
     DayMealsOut,
     LastSetOut,
@@ -442,6 +442,7 @@ def _meal_out(meal: MealLog, food: Food, user_id: int) -> MealOut:
         food=nutrition_service.to_out(food, user_id),
         eaten_on=meal.eaten_on,
         grams=meal.grams,
+        meal_type=meal.meal_type,
         kcal=_scaled(food.kcal_100g, meal.grams),
         protein_g=_scaled(food.protein_100g, meal.grams),
         carbs_g=_scaled(food.carbs_100g, meal.grams),
@@ -449,11 +450,15 @@ def _meal_out(meal: MealLog, food: Food, user_id: int) -> MealOut:
     )
 
 
-def add_meal(db: Session, user_id: int, food_id: int, eaten_on: date, grams: Decimal) -> MealOut:
+def add_meal(
+    db: Session, user_id: int, food_id: int, eaten_on: date, grams: Decimal, meal_type: MealType
+) -> MealOut:
     food = nutrition_service.accessible_food(db, user_id, food_id)
     if food is None:
         raise _not_found("food")
-    meal = MealLog(user_id=user_id, food_id=food.id, eaten_on=eaten_on, grams=grams)
+    meal = MealLog(
+        user_id=user_id, food_id=food.id, eaten_on=eaten_on, grams=grams, meal_type=meal_type
+    )
     db.add(meal)
     db.commit()
     return _meal_out(meal, food, user_id)
@@ -470,9 +475,13 @@ def _own_meal(db: Session, user_id: int, meal_id: int) -> tuple[MealLog, Food]:
     return row[0], row[1]
 
 
-def update_meal(db: Session, user_id: int, meal_id: int, grams: Decimal) -> MealOut:
+def update_meal(
+    db: Session, user_id: int, meal_id: int, grams: Decimal, meal_type: MealType | None
+) -> MealOut:
     meal, food = _own_meal(db, user_id, meal_id)
     meal.grams = grams
+    if meal_type is not None:
+        meal.meal_type = meal_type
     db.commit()
     return _meal_out(meal, food, user_id)
 

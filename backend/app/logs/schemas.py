@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field
 
 from app.common.health_constants import WEIGHT_KG_RANGE
+from app.logs.models import MealType
 from app.nutrition.schemas import FoodOut, TargetsOut
 from app.plans.schemas import PlanDayOut, PlanExerciseOut
 
@@ -118,10 +119,12 @@ class MealIn(BaseModel):
     food_id: int
     eaten_on: LogDate
     grams: Grams
+    meal_type: MealType
 
 
 class MealUpdate(BaseModel):
     grams: Grams
+    meal_type: MealType | None = None
 
 
 class Macros(BaseModel):
@@ -136,6 +139,7 @@ class MealOut(Macros):
     food: FoodOut
     eaten_on: date
     grams: Decimal
+    meal_type: MealType | None
 
 
 class DayMealsOut(BaseModel):

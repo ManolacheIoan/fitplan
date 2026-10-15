@@ -33,7 +33,10 @@ def test_manual_food_is_private(make_user):
         food_id
     ]
     assert other.get(f"{API}/foods", params={"q": "placinta"}).json() == []
-    r = other.post(f"{API}/meals", json={"food_id": food_id, "eaten_on": TODAY, "grams": 100})
+    r = other.post(
+        f"{API}/meals",
+        json={"meal_type": "lunch", "food_id": food_id, "eaten_on": TODAY, "grams": 100},
+    )
     assert r.status_code == 404
 
 
@@ -50,7 +53,8 @@ def test_daily_totals_versus_targets(make_user):
     onboard(c)
     oats = c.get(f"{API}/foods", params={"q": "ovaz"}).json()[0]
     meal = c.post(
-        f"{API}/meals", json={"food_id": oats["id"], "eaten_on": TODAY, "grams": 50}
+        f"{API}/meals",
+        json={"meal_type": "lunch", "food_id": oats["id"], "eaten_on": TODAY, "grams": 50},
     ).json()
     assert meal["kcal"] == "189.5"  # 379 kcal/100 g * 50 g
 
@@ -74,7 +78,12 @@ def test_meal_date_and_grams_validation(make_user):
         {"eaten_on": TODAY, "grams": 0},
         {"eaten_on": TODAY, "grams": 99999},
     ):
-        assert c.post(f"{API}/meals", json={"food_id": food_id, **bad}).status_code == 422
+        assert (
+            c.post(
+                f"{API}/meals", json={"meal_type": "lunch", "food_id": food_id, **bad}
+            ).status_code
+            == 422
+        )
 
 
 def test_users_cannot_touch_each_others_meals(make_user):
@@ -83,7 +92,8 @@ def test_users_cannot_touch_each_others_meals(make_user):
     onboard(intruder)
     food_id = owner.get(f"{API}/foods", params={"q": "banana"}).json()[0]["id"]
     meal_id = owner.post(
-        f"{API}/meals", json={"food_id": food_id, "eaten_on": TODAY, "grams": 120}
+        f"{API}/meals",
+        json={"meal_type": "lunch", "food_id": food_id, "eaten_on": TODAY, "grams": 120},
     ).json()["id"]
     assert intruder.patch(f"{API}/meals/{meal_id}", json={"grams": 1}).status_code == 404
     assert intruder.delete(f"{API}/meals/{meal_id}").status_code == 404
@@ -99,3 +109,22 @@ def test_external_source_results_are_cached(make_user, monkeypatch):
     monkeypatch.setattr(get_settings(), "food_source", "none")
     # Served from the local cache once the source is disabled.
     assert c.get(f"{API}/foods", params={"q": "hummus"}).json()[0]["id"] == found[0]["id"]
+
+
+def test_meal_category_required_and_editable(make_user):
+    c = make_user()
+    onboard(c)
+    food_id = c.get(f"{API}/foods", params={"q": "banana"}).json()[0]["id"]
+    body = {"food_id": food_id, "eaten_on": TODAY, "grams": 100}
+    assert c.post(f"{API}/meals", json=body).status_code == 422
+    assert c.post(f"{API}/meals", json={**body, "meal_type": "brunch"}).status_code == 422
+
+    meal = c.post(f"{API}/meals", json={**body, "meal_type": "breakfast"}).json()
+    assert meal["meal_type"] == "breakfast"
+    updated = c.patch(f"{API}/meals/{meal['id']}", json={"grams": 120, "meal_type": "snack"}).json()
+    assert (updated["meal_type"], updated["grams"]) == ("snack", "120.0")
+    # Changing only the quantity keeps the category.
+    kept = c.patch(f"{API}/meals/{meal['id']}", json={"grams": 90}).json()
+    assert kept["meal_type"] == "snack"
+    entries = c.get(f"{API}/meals", params={"date": TODAY}).json()["entries"]
+    assert [e["meal_type"] for e in entries] == ["snack"]

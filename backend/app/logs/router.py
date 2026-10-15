@@ -144,7 +144,9 @@ def meals_for_day(
 @router.post("/meals", status_code=status.HTTP_201_CREATED)
 def add_meal(data: MealIn, profile: Ready, db: Db) -> MealOut:
     try:
-        return service.add_meal(db, profile.user_id, data.food_id, data.eaten_on, data.grams)
+        return service.add_meal(
+            db, profile.user_id, data.food_id, data.eaten_on, data.grams, data.meal_type
+        )
     except DomainError as e:
         raise _http(e) from None
 
@@ -152,7 +154,7 @@ def add_meal(data: MealIn, profile: Ready, db: Db) -> MealOut:
 @router.patch("/meals/{meal_id}")
 def update_meal(meal_id: int, data: MealUpdate, profile: Ready, db: Db) -> MealOut:
     try:
-        return service.update_meal(db, profile.user_id, meal_id, data.grams)
+        return service.update_meal(db, profile.user_id, meal_id, data.grams, data.meal_type)
     except DomainError as e:
         raise _http(e) from None
 

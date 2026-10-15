@@ -35,7 +35,7 @@ log workouts, food and body weight.
 | Nutrition targets | Mifflin-St Jeor BMR × activity multiplier, moderate deficit/surplus capped by a maximum weekly rate, calorie floor, protein g/kg, minimum fat share, carbs as remainder. Always labelled as approximate. |
 | Gym plan | Rule-based programs chosen by the user or automatically: Full Body (2–3 days), Upper/Lower (2, 4), Push/Pull/Legs (3, 5, 6), Bro Split (5). The plan has exactly one day per training day. 77 curated exercises (English gym names, original Romanian descriptions), each with its own rep scheme (heavy barbell lifts, machine/dumbbell compounds, isolation, hard bodyweight, calves, core, timed holds in seconds), sets adjusted by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
 | Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. Any exercise can be replaced by one with the same movement pattern and a suitable level, either for today only or permanently in the plan (sets/reps follow the new exercise). |
-| Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. External food DB adapter interface + mock only. |
+| Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. External food DB adapter interface + mock only. Entries have a meal category (breakfast, lunch, dinner, snack), preselected from the time of day, and the day view is grouped by category. |
 | Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week), weekly averages, weight and training-volume charts with a table view. |
 | Settings | Theme (dark default / light), profile edit, retake screening, privacy policy, visible disclaimer on every app page. |
 
@@ -120,7 +120,7 @@ so deleting the user row deletes everything.
 | `set_logs` | weight × reps | weight 0–500, reps 1–100; idx session_id, exercise_id |
 | `weight_logs` | one entry per day | unique (user_id, logged_on); weight 30–300 |
 | `foods` | per 100 g; global (seed/external) or private (manual) | kcal 0–900, macros sum ≤ 100; GIN trigram index; unique (external_source, external_id) |
-| `meal_logs` | food + grams per day | grams 0–5000; idx (user_id, eaten_on) |
+| `meal_logs` | food + grams + meal category per day | grams 0–5000; idx (user_id, eaten_on) |
 
 ## API
 

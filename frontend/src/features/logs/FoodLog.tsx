@@ -7,6 +7,7 @@ import { formatDay, nf1, todayLocal } from "@/lib/dates";
 import { useApi } from "@/lib/use-api";
 import { deleteMeal, updateMeal, type DayMeals, type Meal } from "./api";
 import { FoodPicker } from "./FoodPicker";
+import { MEAL_TYPES, mealTypeForNow, type MealType } from "./meals";
 
 function shiftDay(isoDate: string, days: number): string {
   const d = new Date(`${isoDate}T12:00:00Z`);
@@ -84,10 +85,11 @@ function MealRow({ meal, onChange }: { meal: Meal; onChange: () => void }) {
       </div>
       {editing && (
         <form
-          className="flex gap-2"
+          className="flex flex-wrap gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
-            await updateMeal(meal.id, Number(new FormData(e.currentTarget).get("grams")));
+            const form = new FormData(e.currentTarget);
+            await updateMeal(meal.id, Number(form.get("grams")), form.get("meal_type") as MealType);
             setEditing(false);
             onChange();
           }}
@@ -106,12 +108,56 @@ function MealRow({ meal, onChange }: { meal: Meal; onChange: () => void }) {
             defaultValue={meal.grams}
             className="border-border bg-surface min-h-12 flex-1 rounded-xl border px-3"
           />
+          <label className="sr-only" htmlFor={`meal-type-${meal.id}`}>
+            Masa
+          </label>
+          <select
+            id={`meal-type-${meal.id}`}
+            name="meal_type"
+            defaultValue={meal.meal_type ?? mealTypeForNow()}
+            className="border-border bg-surface min-h-12 rounded-xl border px-3"
+          >
+            {MEAL_TYPES.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
           <button type="submit" className="bg-accent text-accent-fg min-h-12 rounded-xl px-4 font-bold">
             Salvează
           </button>
         </form>
       )}
     </li>
+  );
+}
+
+const UNCATEGORIZED = "Fără categorie";
+
+/** Entries grouped by meal, in the usual order of the day, with a calorie subtotal. */
+function MealGroups({ entries, onChange }: { entries: Meal[]; onChange: () => void }) {
+  const groups = [
+    ...MEAL_TYPES.map((t) => ({ label: t.label, items: entries.filter((e) => e.meal_type === t.value) })),
+    { label: UNCATEGORIZED, items: entries.filter((e) => e.meal_type === null) },
+  ].filter((g) => g.items.length > 0);
+  return (
+    <div className="flex flex-col gap-4">
+      {groups.map((g) => (
+        <section key={g.label}>
+          <h3 className="mb-2 flex justify-between text-sm font-bold">
+            <span>{g.label}</span>
+            <span className="text-muted">
+              {nf1.format(g.items.reduce((sum, e) => sum + Number(e.kcal), 0))} kcal
+            </span>
+          </h3>
+          <ul className="flex flex-col gap-2">
+            {g.items.map((meal) => (
+              <MealRow key={meal.id} meal={meal} onChange={onChange} />
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -184,11 +230,7 @@ export function FoodLog() {
             {data.entries.length === 0 ? (
               <EmptyState title="Nimic înregistrat în această zi." />
             ) : (
-              <ul className="flex flex-col gap-2">
-                {data.entries.map((meal) => (
-                  <MealRow key={meal.id} meal={meal} onChange={reload} />
-                ))}
-              </ul>
+              <MealGroups entries={data.entries} onChange={reload} />
             )}
           </Card>
           <Card>
