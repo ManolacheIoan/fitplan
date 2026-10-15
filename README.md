@@ -322,7 +322,7 @@ All of them are in **two files**, with comments:
   minimum age, BMI threshold, Mifflin-St Jeor coefficients, activity multipliers,
   deficit/surplus fractions, maximum weekly loss/gain, kcal per kg, calorie floors,
   protein g/kg, minimum fat share.
-- [`backend/app/plans/constants.py`](backend/app/plans/constants.py): sets/reps/rest per rep scheme and
+- [`backend/app/plans/constants.py`](backend/app/plans/constants.py): sets/reps/rest per rep scheme,
   goal and experience, exercises per session, overload increments, split templates.
 
 Also to review: the screening question wording (`frontend/src/features/profile/ScreeningForm.tsx`)
@@ -340,7 +340,19 @@ constant, bump `RULES_VERSION` in `nutrition/rules.py`.
 3. **Independent recomputation.** The three cases below were recomputed by a separate
    script that does not import FitPlan code and uses exact fractions. All values matched
    the app, and they are pinned in `tests/unit/test_nutrition_reference_cases.py`.
-4. **Not done yet: comparison with a public calculator.** Enter the inputs below into a
+4. **Sources checked online (October 2026).**
+   - Mifflin-St Jeor coefficients match the original paper
+     ([doi:10.1093/ajcn/51.2.241](https://doi.org/10.1093/ajcn/51.2.241)).
+   - Calorie floors of 1,200 (women) / 1,500 (men) kcal/day match Harvard Health's
+     [Calorie counting made easy](https://www.health.harvard.edu/staying-healthy/calorie-counting-made-easy).
+   - Protein of 1.6–2.0 g/kg sits within the ISSN position stand's 1.4–2.0 g/kg
+     ([PMC5477153](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC5477153/)).
+   - The minimum fat share of 25 % is within the IOM range of 20–35 %.
+   - The activity multipliers are conventional; no single primary source was found.
+   - **Open point:** the 2013 AHA/ACC/TOS guideline mentions a 500–750 kcal/day deficit.
+     FitPlan's 20 % deficit (capped by the weekly rate) is smaller for many users, e.g.
+     446 kcal in case A. This is a decision for the reviewing professional.
+5. **Not done yet: comparison with a public calculator.** Enter the inputs below into a
    trusted Mifflin-St Jeor calculator and compare **BMR** and **TDEE** (± 1 kcal for
    rounding). The target calories and macros depend on FitPlan's own deficit, surplus and
    macro constants, so other calculators will differ there by design.

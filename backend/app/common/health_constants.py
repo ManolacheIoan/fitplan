@@ -23,12 +23,16 @@ BMI_MIN_FOR_WEIGHT_LOSS: Final = 18.5
 
 # --- Basal metabolic rate: Mifflin-St Jeor (1990) -------------------------------------------
 # BMR = 10 * weight_kg + 6.25 * height_cm - 5 * age_years + sex_constant
+# Source: Mifflin MD, St Jeor ST et al., Am J Clin Nutr 1990;51(2):241-7,
+# doi:10.1093/ajcn/51.2.241 (simplified sex-specific form: +5 men, -161 women).
 MIFFLIN_WEIGHT_COEF: Final = 10.0
 MIFFLIN_HEIGHT_COEF: Final = 6.25
 MIFFLIN_AGE_COEF: Final = 5.0
 MIFFLIN_SEX_CONSTANT: Final = {"male": 5.0, "female": -161.0}
 
 # --- Activity multipliers (TDEE = BMR * multiplier) --------------------------------------
+# Conventional planning factors used by most calculators; no single primary source was
+# found. They are the largest source of error in a TDEE estimate.
 ACTIVITY_MULTIPLIERS: Final = {
     "sedentary": 1.2,  # little or no exercise, desk job
     "light": 1.375,  # light exercise 1-3 days/week
@@ -38,6 +42,8 @@ ACTIVITY_MULTIPLIERS: Final = {
 }
 
 # --- Energy adjustment by goal ---------------------------------------------------------------
+# For comparison, the 2013 AHA/ACC/TOS obesity guideline mentions a 500-750 kcal/day
+# deficit; the 20 % used here is smaller for many users (to validate).
 # Fraction of TDEE removed (lose) or added (gain) before the weekly-rate caps below apply.
 DEFICIT_FRACTION: Final = 0.20
 SURPLUS_FRACTION: Final = 0.10
@@ -49,14 +55,17 @@ MAX_WEEKLY_GAIN_FRACTION: Final = 0.0025
 KCAL_PER_KG_BODY_MASS: Final = 7700.0
 
 # --- Calorie floor ---------------------------------------------------------------------------
+# Harvard Health ("Calorie counting made easy") advises not going below 1,200 kcal/day
+# (women) or 1,500 kcal/day (men) except under medical supervision.
 # Targets are never set below these values (kcal/day).
 CALORIE_FLOOR: Final = {"male": 1500, "female": 1200}
 
 # --- Macronutrients --------------------------------------------------------------------------
-# Protein in grams per kg of (total) body weight. To validate: at high BMI an adjusted or
-# reference body weight may be more appropriate than total body weight.
+# Protein in grams per kg of (total) body weight. ISSN position stand (Jäger et al. 2017,
+# PMC5477153): 1.4-2.0 g/kg/day for most exercising individuals. To validate: at high BMI
+# an adjusted or reference body weight may be more appropriate than total body weight.
 PROTEIN_G_PER_KG: Final = {"lose": 2.0, "maintain": 1.6, "gain": 1.8}
-# Minimum share of calories from fat.
+# Minimum share of calories from fat (the IOM range for adults is 20-35 %).
 MIN_FAT_FRACTION: Final = 0.25
 # Energy density (kcal per gram) - standard Atwater factors.
 KCAL_PER_G_PROTEIN: Final = 4.0
