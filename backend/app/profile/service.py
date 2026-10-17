@@ -13,6 +13,11 @@ from app.profile import screening
 from app.profile.models import Profile, ScreeningStatus
 from app.profile.schemas import ProfileIn, ProfileOut
 
+# Profile fields the screening questions depend on (the pregnancy question is asked only for
+# female sex). Changing one resets the outcome, so the user must answer the screening again.
+# Birth date is not listed: no question depends on age, and the 18+ rule runs on every save.
+SCREENING_FIELDS = ("sex",)
+
 
 class ProfileRuleError(Exception):
     """A rule violation the user must fix (code is shown by the frontend)."""
@@ -59,6 +64,10 @@ def save(db: Session, user_id: int, data: ProfileIn) -> Profile:
         profile = Profile(user_id=user_id, **data.model_dump())
         db.add(profile)
     else:
+        if any(getattr(profile, f) != getattr(data, f) for f in SCREENING_FIELDS):
+            # The questions depend on these fields: the old outcome no longer applies.
+            profile.screening_status = None
+            profile.screening_at = None
         for field, value in data.model_dump().items():
             setattr(profile, field, value)
     db.flush()

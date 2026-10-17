@@ -109,3 +109,34 @@ def test_pregnancy_question_only_applies_to_female(make_user):
     female.put(f"{API}/profile", json=profile_payload(sex="female"))
     r = female.post(f"{API}/profile/screening", json=answers)
     assert r.status_code == 422 and r.json()["detail"] == "pregnancy_answer_required"
+
+
+def test_male_to_female_after_passed_screening_requires_screening_again(make_user):
+    c = make_user()
+    onboard(c, sex="male")
+    assert c.get(f"{API}/plans/current").status_code == 200
+    r = c.put(f"{API}/profile", json=profile_payload(sex="female"))
+    assert r.status_code == 200 and r.json()["screening_status"] is None
+    for path in ("/nutrition/targets", "/plans/current", "/workouts/today"):
+        r = c.get(f"{API}{path}")
+        assert r.status_code == 409 and r.json()["detail"] == "screening_required", path
+    # The pregnancy question must now be answered.
+    answers = {k: v for k, v in NO_RISK.items() if k != "pregnant_or_breastfeeding"}
+    assert c.post(f"{API}/profile/screening", json=answers).status_code == 422
+    assert c.post(f"{API}/profile/screening", json=NO_RISK).json() == {"status": "passed"}
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
+
+
+def test_female_to_male_also_resets_screening(make_user):
+    c = make_user()
+    onboard(c, sex="female")
+    r = c.put(f"{API}/profile", json=profile_payload(sex="male"))
+    assert r.json()["screening_status"] is None
+
+
+def test_other_profile_changes_keep_screening(make_user):
+    c = make_user()
+    onboard(c)
+    r = c.put(f"{API}/profile", json=profile_payload(weight_kg=72, training_days=4))
+    assert r.json()["screening_status"] == "passed"
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
