@@ -292,7 +292,7 @@ completed profile and a passed screening (`409 profile_missing | screening_requi
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/health` | Outside `/api/v1`; no DB access; used to wake the backend |
-| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login limited per (email, IP) and per IP, registration per IP ([DECISIONS.md](DECISIONS.md)); logout of a guest deletes the guest account |
+| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login limited per (email, IP) and per IP, registration per IP, plus a global soft limit (`429 auth_busy`) ([DECISIONS.md](DECISIONS.md)); logout of a guest deletes the guest account |
 | POST | `/auth/guest` | temporary account without credentials (`{consent: true}`), 7-day session; rate-limited per IP |
 | GET | `/auth/me` | includes `is_guest` and `consent_required` |
 | POST | `/auth/consent` · `/auth/password` | password change ends all sessions and starts a fresh one |
@@ -356,15 +356,19 @@ Backend (`backend/.env.example`):
 | `SESSION_TTL_DAYS` | `14` | Session lifetime |
 | `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Login attempts per (email, IP), and registration/guest attempts per IP, per window |
 | `LOGIN_IP_RATE_LIMIT` | `20` | Login attempts per IP across all emails, per window |
+| `AUTH_GLOBAL_LIMIT` | `300` | Whole-app login + registration + guest attempts per window; above it the API answers `429 auth_busy` |
 | `TRUSTED_PROXY_HOPS` | `0` | `X-Forwarded-For` entries added by trusted proxies, counted from the right; `1` on Render ([DECISIONS.md](DECISIONS.md)) |
+| `PROXY_SECRET` | empty | Shared with Netlify; only requests carrying it in `X-FitPlan-Proxy-Secret` may name the visitor IP (`X-Nf-Client-Connection-Ip`); ≥ 32 characters |
+| `LOG_CLIENT_IP_RESOLUTION` | `false` | Deploy check only: logs how the client IP was resolved (masked /24 or /48) |
 | `APP_TIMEZONE` | `Europe/Bucharest` | Groups workouts into local weeks |
 | `FOOD_SOURCE` | `none` | External food database: `none`, `open_food_facts` (or `mock` in tests) |
 | `OFF_USER_AGENT` | placeholder | Identifies the app to Open Food Facts: `App/Version (contact email)` |
 | `FEATURE_AI_MEAL_PARSING` | `false` | V2 placeholder; keep `false` |
 | `MAINTENANCE_TOKEN` | empty (disabled) | Bearer token for the scheduled guest cleanup endpoint; ≥ 32 characters |
 
-Frontend (`frontend/.env.example`): `DEV_API_URL` (dev proxy target) and `BACKEND_URL`
-(Netlify build only; the https URL of the Render service).
+Frontend (`frontend/.env.example`): `DEV_API_URL` (dev proxy target), and for the Netlify
+build only `BACKEND_URL` (the https URL of the Render service) and `PROXY_SECRET` (same
+value as on Render). Set both in the Netlify UI with the **Builds** scope.
 
 Secrets never go in the repository; `.env*` files are git-ignored except the examples.
 
@@ -403,15 +407,46 @@ All three have free tiers. Choose EU regions everywhere.
 2. **Render (backend)**: *New → Blueprint* and select this repo (`render.yaml`), or create
    a Python web service with root `backend`, region **Frankfurt**, and the build/start
    commands from `render.yaml`. Set `DATABASE_URL` (Neon) and `ALLOWED_ORIGINS`
-   (your Netlify URL). `SECRET_KEY` is generated. Migrations and the idempotent seed run
-   on every start.
+   (your Netlify URL). `SECRET_KEY`, `MAINTENANCE_TOKEN` and `PROXY_SECRET` are generated.
+   Migrations and the idempotent seed run on every start.
 3. **Netlify (frontend)**: import the repo with **base directory `frontend`**
-   (`netlify.toml` provides build command, publish dir and headers). Set `BACKEND_URL`
-   to the Render URL (e.g. `https://fitplan-api.onrender.com`). The build writes
-   `out/_redirects` with the `/api/*` proxy rule. Netlify passes cookies through the proxy;
-   API responses carry `Cache-Control: no-store`, so they are never cached.
+   (`netlify.toml` provides build command, publish dir, headers and the `/api/*` proxy
+   rule). Set `BACKEND_URL` to the Render URL (e.g. `https://fitplan-api.onrender.com`)
+   and `PROXY_SECRET` to the value Render generated, both with the Builds scope.
+   `scripts/configure-proxy.mjs` writes them into the proxy rule during the build and fails
+   the build if either is missing. Netlify passes cookies through the proxy; API responses
+   carry `Cache-Control: no-store`, so they are never cached.
 4. Open the Netlify URL, register, and check *Settings → Exportă datele*.
 5. Set up the [guest cleanup](#guest-cleanup).
+6. Run the [post-deploy client IP check](#post-deploy-client-ip-check).
+
+### Post-deploy client IP check
+
+Rate limiting depends on how the client IP is resolved ([DECISIONS.md](DECISIONS.md)),
+and two parts of it are not confirmed by Netlify's or Render's docs. After every deploy
+that touches the proxy, `render.yaml` or the secret:
+
+1. On Render, set `LOG_CLIENT_IP_RESOLUTION=true` (the service restarts).
+2. Send one request **through Netlify** and one **directly to Render**, each with a forged
+   header, from a network whose public IP you know:
+
+   ```bash
+   body='{"email":"check@example.com","password":"not-the-password"}'
+   for base in https://<site>.netlify.app https://<service>.onrender.com; do
+     curl -s -o /dev/null -w "$base %{http_code}\n" -X POST "$base/api/v1/auth/login" \
+       -H 'Content-Type: application/json' -H 'X-Forwarded-For: 1.2.3.4' \
+       -H 'X-Nf-Client-Connection-Ip: 5.6.7.8' -H 'X-FitPlan-Proxy-Secret: guess' -d "$body"
+   done
+   ```
+
+3. Compare the two `client_ip source=... prefix=...` lines in the Render logs:
+   - through Netlify: `source=netlify` and **your** network's prefix. `netlify-fallback`
+     means Netlify did not send the visitor header (limits still work, but per-IP limits
+     are off; see DECISIONS.md). `direct` means the secret did not arrive: check
+     `PROXY_SECRET` on both sides and rebuild Netlify.
+   - directly to Render: `source=direct` and your network's prefix.
+   - neither line may show `1.2.3.0/24` or `5.6.7.0/24` (the forged values).
+4. Set `LOG_CLIENT_IP_RESOLUTION=false` again.
 
 ### Guest cleanup
 
@@ -477,9 +512,12 @@ the instance awake, but it counts against Render's free hours and is not set up.
 - Sessions: random 256-bit token in an **httpOnly, Secure, SameSite=Lax** cookie. Only its
   SHA-256 is stored. Logout deletes the session (and the whole account for guests). A
   password change or account deletion invalidates all sessions.
-- Rate limiting: login per (email, IP) and per IP, registration and guest start per IP.
-  The client IP is the right-most `X-Forwarded-For` hop added by Render, never the
-  client-supplied left-most value ([DECISIONS.md](DECISIONS.md)).
+- Rate limiting: login per (email, IP) and per IP, registration and guest start per IP,
+  plus a global soft limit. The visitor IP comes from Netlify's
+  `X-Nf-Client-Connection-Ip` only when the request carries the Netlify proxy secret
+  (constant-time comparison). Otherwise the address that connected to Render is used
+  (the `X-Forwarded-For` entry Render adds); client-supplied values are never used
+  ([DECISIONS.md](DECISIONS.md)).
 - CSRF: Origin check plus a double-submit token bound to the session (HMAC).
 - Security headers on API and static site (CSP, HSTS, nosniff, frame-deny,
   referrer-policy, permissions-policy). The static site's CSP allows `'unsafe-inline'`
@@ -582,11 +620,11 @@ there by design.
 - Bodyweight exercises are logged with 0 kg extra load, so they add no training volume.
 - Demo foods are rounded reference values. Open Food Facts data is crowd-sourced and may
   contain errors; see [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
-- The rate limiter is in memory (single instance, reset on restart). Behind the Netlify
-  proxy the per-IP key is a Netlify egress address that many visitors share, so busy
-  periods can hit the registration limit. The Render hop count is taken from community
-  reports, not Render's docs, and has not been verified on the live service. See
-  [DECISIONS.md](DECISIONS.md).
+- The rate limiter is in memory (single instance, reset on restart). That
+  `X-Nf-Client-Connection-Ip` reaches proxied requests is based on a Netlify forum
+  announcement, not Netlify's docs; without it, per-IP limits are skipped for traffic
+  through Netlify. Many attackers with distinct IPs can trip the global soft limit and
+  pause logins for everyone for up to 15 minutes. See [DECISIONS.md](DECISIONS.md).
 - The privacy policy contains placeholders for operator identity and contact, and needs
   legal review.
 
@@ -606,8 +644,7 @@ technical:
 4. **Open Food Facts.** Set `OFF_USER_AGENT`, fill in OFF's API usage form, and settle how to
    meet ODbL section 4.6 for the locally cached products. The full list is in
    [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
-5. **Proxy hop count.** Confirm how many `X-Forwarded-For` entries Render adds (Render
-   support or a header dump on a staging service) and keep `TRUSTED_PROXY_HOPS` in
-   line with it ([DECISIONS.md](DECISIONS.md)).
+5. **Client IP check.** Run the [post-deploy client IP check](#post-deploy-client-ip-check)
+   and keep `TRUSTED_PROXY_HOPS` in line with what Render adds.
 6. **Neon restore window.** Check the project's history retention in Neon. The privacy
    policy says deleted data stays in Neon's restore history until that window passes.

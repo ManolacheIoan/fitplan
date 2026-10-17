@@ -22,7 +22,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.auth.router import login_ip_limiter, login_limiter, register_limiter
+from app.auth.router import (
+    auth_global_limiter,
+    login_ip_limiter,
+    login_limiter,
+    register_limiter,
+)
 from app.common.db import get_db, get_engine
 from app.common.security import CSRF_COOKIE, CSRF_HEADER
 from app.main import create_app
@@ -59,6 +64,7 @@ def db() -> Iterator[Session]:
 def _reset_rate_limits() -> None:
     login_limiter.reset()
     login_ip_limiter.reset()
+    auth_global_limiter.reset()
     register_limiter.reset()
     reset_external_search_state()
 

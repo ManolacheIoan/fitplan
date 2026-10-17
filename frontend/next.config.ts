@@ -5,8 +5,8 @@ const devApiUrl = process.env.DEV_API_URL ?? "http://localhost:8000";
 
 const nextConfig: NextConfig = {
   // Production build is a static export served by Netlify; /api/* is proxied to the backend
-  // by Netlify (rule written to out/_redirects by scripts/write-redirects.mjs). In dev, a rewrite mimics that proxy so cookies stay
-  // same-origin. Rewrites are not allowed together with `output: "export"`.
+  // by the [[redirects]] rule in netlify.toml (filled by scripts/configure-proxy.mjs). In dev,
+  // a rewrite mimics that proxy so cookies stay same-origin. Rewrites are not allowed together with `output: "export"`.
   output: isDev ? undefined : "export",
   // Lets E2E run its own dev server next to the one used for development.
   distDir: process.env.NEXT_DIST_DIR ?? ".next",

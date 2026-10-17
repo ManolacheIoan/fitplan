@@ -22,10 +22,14 @@ services:
         generateValue: true
       - key: ALLOWED_ORIGINS
         sync: false # e.g. https://fitplan.netlify.app
-      # Client IP for rate limiting = right-most X-Forwarded-For entry (added by Render).
-      # Never trust uvicorn's --forwarded-allow-ips='*'. See DECISIONS.md.
+      # Client IP for rate limiting (DECISIONS.md): Netlify's visitor header only behind
+      # PROXY_SECRET, otherwise the X-Forwarded-For entry Render adds (1 hop from the right).
       - key: TRUSTED_PROXY_HOPS
         value: "1"
+      - key: PROXY_SECRET
+        generateValue: true # copy it into the Netlify environment variable PROXY_SECRET
+      - key: LOG_CLIENT_IP_RESOLUTION
+        value: "false" # true only during the deploy check (README), then back to false
       - key: COOKIE_SECURE
         value: "true"
       - key: FOOD_SOURCE
