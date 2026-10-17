@@ -16,6 +16,7 @@ from app.auth.schemas import (
     PasswordChangeIn,
     RegisterIn,
 )
+from app.common.client_ip import client_ip
 from app.common.db import get_db
 from app.common.rate_limit import RateLimiter
 from app.common.security import CSRF_COOKIE, SESSION_COOKIE, csrf_token_for
@@ -24,12 +25,11 @@ from app.config import get_settings
 router = APIRouter(tags=["auth"])
 
 _settings = get_settings()
+# Keyed by (email, IP): a stranger guessing passwords cannot lock the owner out of their account.
 login_limiter = RateLimiter(_settings.login_rate_limit, _settings.login_rate_window_seconds)
+# Keyed by IP alone: caps password spraying across many emails.
+login_ip_limiter = RateLimiter(_settings.login_ip_rate_limit, _settings.login_rate_window_seconds)
 register_limiter = RateLimiter(_settings.login_rate_limit, _settings.login_rate_window_seconds)
-
-
-def _client_ip(request: Request) -> str:
-    return request.client.host if request.client else "unknown"
 
 
 def _set_session_cookies(response: Response, token: str, ttl_days: int) -> None:
@@ -65,7 +65,7 @@ def _me(db: Session, user: User) -> MeOut:
 def register(
     data: RegisterIn, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
-    if not register_limiter.hit(_client_ip(request)):
+    if not register_limiter.hit(client_ip(request)):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
     try:
         user = service.register(db, data.email, data.password)
@@ -80,7 +80,7 @@ def register(
 def continue_as_guest(
     _: GuestIn, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
-    if not register_limiter.hit(_client_ip(request)):
+    if not register_limiter.hit(client_ip(request)):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
     user = service.create_guest(db)
     _start_session(db, response, user)
@@ -91,10 +91,12 @@ def continue_as_guest(
 def login(
     data: Credentials, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
-    # Limit per IP and per account, so neither spraying nor targeted guessing scales.
-    allowed_ip = login_limiter.hit(f"ip:{_client_ip(request)}")
-    allowed_email = login_limiter.hit(f"email:{data.email}")
-    if not (allowed_ip and allowed_email):
+    # Limit per IP and per (email, IP), so neither spraying nor targeted guessing scales,
+    # while attempts from elsewhere never block the account owner.
+    ip = client_ip(request)
+    allowed_ip = login_ip_limiter.hit(ip)
+    allowed_pair = login_limiter.hit(f"{data.email}|{ip}")
+    if not (allowed_ip and allowed_pair):
         raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
     user = service.authenticate(db, data.email, data.password)
     if user is None:
