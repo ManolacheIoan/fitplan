@@ -68,7 +68,7 @@ What follows from that:
   minute for the whole app and 4 per minute per user, and does not resend the same term
   for 24 h.
 - Requests carry an identifying User-Agent (`OFF_USER_AGENT`, "App/Version (contact)").
-- The privacy policy (version 2026-10-v3) says what is sent (only the search text, from
+- The privacy policy (version 2026-10-v4) says what is sent (only the search text, from
   the server) and to whom.
 
 ## Before going public: your checklist

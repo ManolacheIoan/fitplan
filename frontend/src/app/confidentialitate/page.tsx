@@ -24,6 +24,7 @@ const SECTIONS: [string, string[]][] = [
       "Jurnale: antrenamente (exerciții, greutăți, repetări, exerciții înlocuite), alimente consumate pe categorii de masă, greutatea corporală, alimente adăugate manual.",
       "Consimțământul: versiunea politicii acceptate și momentul acceptării.",
       "Sesiunea de autentificare: un identificator aleator într-un cookie; pe server păstrăm doar o amprentă (hash) a lui și data expirării.",
+      "Protecția împotriva încercărilor repetate de autentificare: adresa IP de la care vine cererea și emailul introdus sunt ținute doar în memoria serverului, cel mult 15 minute, și nu sunt salvate în baza de date.",
     ],
   ],
   [
@@ -36,7 +37,8 @@ const SECTIONS: [string, string[]][] = [
   [
     "Cât timp păstrăm datele",
     [
-      "Cont obișnuit: până când îți ștergi contul. Ștergerea este imediată și definitivă și include toate datele de mai sus.",
+      "Cont obișnuit: până când îți ștergi contul. Ștergerea din baza de date este imediată și include toate datele de mai sus.",
+      "Istoricul de restaurare: furnizorul bazei de date (Neon) păstrează automat un istoric al bazei, folosit doar pentru restaurare în caz de defecțiune, pe o perioadă limitată [DE COMPLETAT: durata ferestrei de restaurare din setările proiectului Neon]. Datele șterse rămân în acest istoric până la expirarea perioadei, apoi dispar definitiv.",
       "Sesiunea de autentificare expiră după 14 zile sau la deconectare.",
       "Cont de vizitator: când apeși „Ieși și șterge datele”, contul și toate datele lui sunt șterse imediat. Dacă nu ieși, sesiunea expiră după 7 zile de la creare, iar contul și datele sunt șterse la următoarea curățare automată, care rulează zilnic (de regulă în aproximativ o zi de la expirare).",
       "Textul unei căutări în Open Food Facts este ținut cel mult 24 de ore în memoria serverului, fără legătură cu contul tău, ca să nu trimitem aceeași căutare de mai multe ori.",
@@ -62,7 +64,7 @@ const SECTIONS: [string, string[]][] = [
     "Drepturile tale",
     [
       "Poți descărca oricând toate datele tale (export JSON) din Setări.",
-      "Poți șterge definitiv contul din Setări; toate datele asociate sunt șterse imediat.",
+      "Poți șterge definitiv contul din Setări (contul obișnuit cere parola, contul de vizitator nu); toate datele asociate sunt șterse imediat din baza de date și dispar din istoricul de restaurare la expirarea acestuia.",
       "Pentru alte solicitări (rectificare, informații, plângeri) folosește adresa de contact de mai sus. Ai dreptul să depui o plângere la autoritatea de supraveghere (ANSPDCP).",
     ],
   ],
