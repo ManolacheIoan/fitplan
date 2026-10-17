@@ -25,11 +25,37 @@ from app.config import get_settings
 router = APIRouter(tags=["auth"])
 
 _settings = get_settings()
+_window = _settings.login_rate_window_seconds
 # Keyed by (email, IP): a stranger guessing passwords cannot lock the owner out of their account.
-login_limiter = RateLimiter(_settings.login_rate_limit, _settings.login_rate_window_seconds)
+login_limiter = RateLimiter(_settings.login_rate_limit, _window)
 # Keyed by IP alone: caps password spraying across many emails.
-login_ip_limiter = RateLimiter(_settings.login_ip_rate_limit, _settings.login_rate_window_seconds)
-register_limiter = RateLimiter(_settings.login_rate_limit, _settings.login_rate_window_seconds)
+login_ip_limiter = RateLimiter(_settings.login_ip_rate_limit, _window)
+register_limiter = RateLimiter(_settings.login_rate_limit, _window)
+# One counter for the whole app: a backstop against distributed abuse. Only attempts that
+# passed the per-visitor limits count, so one visitor adds at most its own small quota.
+auth_global_limiter = RateLimiter(_settings.auth_global_limit, _window)
+
+
+def _too_many() -> HTTPException:
+    return HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
+
+
+def _check_global() -> None:
+    if not auth_global_limiter.hit("all"):
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "auth_busy",
+            headers={"Retry-After": str(_window // 3)},
+        )
+
+
+def _check_registration(request: Request) -> None:
+    ip = client_ip(request)
+    # A shared proxy address is not one visitor: a per-IP limit there would let one
+    # visitor block sign-ups for everyone, so only the global limit applies.
+    if not ip.shared and not register_limiter.hit(ip.address):
+        raise _too_many()
+    _check_global()
 
 
 def _set_session_cookies(response: Response, token: str, ttl_days: int) -> None:
@@ -65,8 +91,7 @@ def _me(db: Session, user: User) -> MeOut:
 def register(
     data: RegisterIn, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
-    if not register_limiter.hit(client_ip(request)):
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
+    _check_registration(request)
     try:
         user = service.register(db, data.email, data.password)
     except service.EmailTakenError:
@@ -80,8 +105,7 @@ def register(
 def continue_as_guest(
     _: GuestIn, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
-    if not register_limiter.hit(client_ip(request)):
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
+    _check_registration(request)
     user = service.create_guest(db)
     _start_session(db, response, user)
     return _me(db, user)
@@ -92,12 +116,14 @@ def login(
     data: Credentials, request: Request, response: Response, db: Session = Depends(get_db)
 ) -> MeOut:
     # Limit per IP and per (email, IP), so neither spraying nor targeted guessing scales,
-    # while attempts from elsewhere never block the account owner.
+    # while attempts from elsewhere never block the account owner. Checks stop at the first
+    # refusal, so refused attempts do not use up the other (wider) limits.
     ip = client_ip(request)
-    allowed_ip = login_ip_limiter.hit(ip)
-    allowed_pair = login_limiter.hit(f"{data.email}|{ip}")
-    if not (allowed_ip and allowed_pair):
-        raise HTTPException(status.HTTP_429_TOO_MANY_REQUESTS, "too_many_attempts")
+    if not ip.shared and not login_ip_limiter.hit(ip.address):
+        raise _too_many()
+    if not login_limiter.hit(f"{data.email}|{ip.address}"):
+        raise _too_many()
+    _check_global()
     user = service.authenticate(db, data.email, data.password)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_credentials")

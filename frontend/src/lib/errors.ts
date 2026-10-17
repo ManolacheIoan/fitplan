@@ -4,6 +4,8 @@ const MESSAGES: Record<string, string> = {
   invalid_credentials: "Email sau parolă incorectă.",
   email_taken: "Există deja un cont cu acest email.",
   too_many_attempts: "Prea multe încercări. Încearcă din nou peste câteva minute.",
+  auth_busy:
+    "Sunt foarte multe autentificări în acest moment. Încearcă din nou peste câteva minute; datele tale sunt în siguranță.",
   backend_unavailable: "Serverul nu răspunde. Încearcă din nou puțin mai târziu.",
   csrf_failed: "Sesiunea a expirat. Reîncarcă pagina.",
   not_authenticated: "Trebuie să te autentifici.",

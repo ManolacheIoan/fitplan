@@ -1,8 +1,20 @@
-# Netlify site settings: base directory = frontend. Set BACKEND_URL in the Netlify UI
-# (e.g. https://fitplan-api.onrender.com); the build writes the /api proxy rule from it.
+# Netlify site settings: base directory = frontend. Set in the Netlify UI (scope: Builds):
+#   BACKEND_URL   e.g. https://fitplan-api.onrender.com
+#   PROXY_SECRET  same value as PROXY_SECRET on Render (see DECISIONS.md)
+# scripts/configure-proxy.mjs replaces the placeholders in the [[redirects]] rule below.
 [build]
-  command = "npm run build && node scripts/write-redirects.mjs"
+  command = "node scripts/configure-proxy.mjs && npm run build"
   publish = "out"
+
+# Same-origin API: Netlify proxies /api/* to Render, adding the shared secret header so
+# the backend trusts Netlify's visitor IP header (X-Nf-Client-Connection-Ip).
+[[redirects]]
+  from = "/api/*"
+  to = "BACKEND_URL_PLACEHOLDER/api/:splat"
+  status = 200
+  force = true
+  [redirects.headers]
+    X-FitPlan-Proxy-Secret = "PROXY_SECRET_PLACEHOLDER"
 
 [build.environment]
   NODE_VERSION = "24"

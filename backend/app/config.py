@@ -21,9 +21,17 @@ class Settings(BaseSettings):
     login_rate_limit: int = 5
     login_ip_rate_limit: int = 20
     login_rate_window_seconds: int = 15 * 60
+    # Auth attempts (login, registration, guest start) per window for the whole app, counted
+    # only after the per-visitor limits passed. Exceeding it answers 429 "auth_busy".
+    auth_global_limit: int = 300
     # Number of X-Forwarded-For entries added by proxies we trust, counted from the right.
     # 0 = ignore the header (direct connections, tests). See DECISIONS.md.
     trusted_proxy_hops: int = 0
+    # Shared secret the Netlify proxy rule sends in X-FitPlan-Proxy-Secret. Only requests
+    # carrying it may name the visitor's IP. Empty = no request can. >= 32 characters.
+    proxy_secret: str = ""
+    # Deploy verification: log how the client IP was resolved (masked prefix). Keep false.
+    log_client_ip_resolution: bool = False
     # External food database: "none" (default), "open_food_facts" or "mock" (tests).
     food_source: str = "none"
     # Open Food Facts asks for "AppName/Version (contact email)"; set your own contact.
@@ -42,11 +50,11 @@ class Settings(BaseSettings):
                 return "postgresql+psycopg://" + value.removeprefix(prefix)
         return value
 
-    @field_validator("maintenance_token")
+    @field_validator("maintenance_token", "proxy_secret")
     @classmethod
     def long_enough_token(cls, value: str) -> str:
         if value and len(value) < 32:
-            raise ValueError("MAINTENANCE_TOKEN must be at least 32 characters")
+            raise ValueError("MAINTENANCE_TOKEN and PROXY_SECRET must be at least 32 characters")
         return value
 
     @field_validator("allowed_origins", mode="before")
