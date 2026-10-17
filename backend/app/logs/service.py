@@ -563,10 +563,8 @@ def _weekly_average(db: Session, user_id: int, until: date) -> Decimal:
 def save_weight(
     db: Session, profile: Profile, logged_on: date, weight_kg: Decimal
 ) -> tuple[WeightLog, bool]:
-    """Upsert the day's weight, sync the profile weight and, at most once per week,
-    recompute targets from the 7-day average. Returns (entry, targets_updated).
-
-    The recompute re-runs every safety rule (BMI threshold, calorie floor).
+    """Upsert the day's weight, sync the profile weight and apply the safety rules.
+    Returns (entry, targets_updated).
     """
     values = insert(WeightLog).values(
         user_id=profile.user_id, logged_on=logged_on, weight_kg=weight_kg
@@ -578,14 +576,9 @@ def save_weight(
     # A back-dated entry must not overwrite a more recent weight.
     latest = _latest_weight(db, profile.user_id) or entry
     profile.weight_kg = latest.weight_kg
-
-    targets = nutrition_service.current(db, profile.user_id)
-    due = targets is None or targets.computed_at <= datetime.now(UTC) - TARGETS_RECOMPUTE_INTERVAL
-    if due:
-        average = _weekly_average(db, profile.user_id, latest.logged_on)
-        nutrition_service.recompute(db, profile, average)
+    updated = _apply_safety_rules(db, profile, latest)
     db.commit()
-    return entry, due
+    return entry, updated
 
 
 def delete_weight(db: Session, profile: Profile, weight_id: int) -> None:
@@ -597,7 +590,28 @@ def delete_weight(db: Session, profile: Profile, weight_id: int) -> None:
     latest = _latest_weight(db, profile.user_id)
     if latest is not None:
         profile.weight_kg = latest.weight_kg
+    _apply_safety_rules(db, profile, latest)
     db.commit()
+
+
+def _apply_safety_rules(db: Session, profile: Profile, latest: WeightLog | None) -> bool:
+    """Run after every weight change; returns whether the stored targets changed.
+
+    Targets are recomputed from the 7-day average at most once per week, but the BMI rule
+    is checked against the current weight every time, so weight-loss targets are removed
+    as soon as the user crosses the threshold. The calorie floor needs no re-check here:
+    it depends only on sex and is applied by every recompute.
+    """
+    targets = nutrition_service.current(db, profile.user_id)
+    due = targets is None or targets.computed_at <= datetime.now(UTC) - TARGETS_RECOMPUTE_INTERVAL
+    if due:
+        average = _weekly_average(db, profile.user_id, latest.logged_on) if latest else None
+        nutrition_service.recompute(db, profile, average)
+        return True
+    if nutrition_service.blocked_reason(profile, profile.weight_kg):
+        nutrition_service.recompute(db, profile)  # removes the targets
+        return True
+    return False
 
 
 # --- Progress --------------------------------------------------------------------------------

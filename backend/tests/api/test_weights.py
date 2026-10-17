@@ -3,7 +3,7 @@ from datetime import UTC, date, datetime, timedelta
 from sqlalchemy import update
 
 from app.nutrition.models import NutritionTarget
-from tests.factories import API, onboard
+from tests.factories import API, onboard, profile_payload
 
 
 def day(offset: int) -> str:
@@ -114,3 +114,62 @@ def test_export_contains_all_user_data(make_user):
         "weights",
     } <= data.keys()
     assert data["weights"][0]["weight_kg"] == "70.0"
+
+
+def test_dropping_below_bmi_threshold_between_recomputes_blocks_immediately(make_user):
+    c = make_user()
+    onboard(c, height_cm=180, weight_kg=61, goal="lose")  # BMI ~18.8, targets just computed
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
+    r = c.post(f"{API}/weights", json={"logged_on": day(0), "weight_kg": 58.0})  # BMI ~17.9
+    assert r.json()["targets_updated"] is True
+    body = c.get(f"{API}/nutrition/targets").json()
+    assert body == {"status": "blocked", "reason": "weight_loss_blocked_bmi", "targets": None}
+
+
+def test_weekly_average_above_threshold_does_not_hide_current_weight(make_user, db):
+    c = make_user()
+    onboard(c, height_cm=180, weight_kg=62, goal="lose")
+    for offset in (3, 2, 1):
+        c.post(f"{API}/weights", json={"logged_on": day(offset), "weight_kg": 62.0})
+    age_targets(db, 8)
+    c.post(f"{API}/weights", json={"logged_on": day(0), "weight_kg": 58.0})  # average 61.0
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "blocked"
+
+
+def test_deleting_a_weight_entry_reapplies_the_bmi_rule(make_user):
+    c = make_user()
+    onboard(c, height_cm=180, weight_kg=61, goal="lose")
+    c.post(f"{API}/weights", json={"logged_on": day(1), "weight_kg": 58.0})
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "blocked"
+    # Deleting the low entry leaves an older weight above the threshold: unblocked again.
+    c.post(f"{API}/weights", json={"logged_on": day(2), "weight_kg": 61.0})
+    low = next(
+        e for e in c.get(f"{API}/progress/weight").json()["entries"] if e["weight_kg"] == "58.0"
+    )
+    assert c.delete(f"{API}/weights/{low['id']}").status_code == 204
+    assert c.get(f"{API}/profile").json()["weight_kg"] == "61.0"
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
+
+
+def test_deleting_the_latest_entry_blocks_when_older_weight_is_below_threshold(make_user):
+    c = make_user()
+    onboard(c, height_cm=180, weight_kg=61, goal="lose")
+    # Older than the 7-day window, so it does not pull the average below the threshold.
+    c.post(f"{API}/weights", json={"logged_on": day(10), "weight_kg": 58.0})
+    c.post(f"{API}/weights", json={"logged_on": day(0), "weight_kg": 61.0})
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
+    latest = next(
+        e for e in c.get(f"{API}/progress/weight").json()["entries"] if e["weight_kg"] == "61.0"
+    )
+    c.delete(f"{API}/weights/{latest['id']}")
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "blocked"
+
+
+def test_profile_change_below_threshold_is_rejected_and_maintain_has_targets(make_user):
+    c = make_user()
+    onboard(c, height_cm=180, weight_kg=61, goal="lose")
+    r = c.put(f"{API}/profile", json=profile_payload(height_cm=180, weight_kg=58, goal="lose"))
+    assert r.status_code == 422 and r.json()["detail"] == "weight_loss_blocked_bmi"
+    r = c.put(f"{API}/profile", json=profile_payload(height_cm=180, weight_kg=58, goal="maintain"))
+    assert r.status_code == 200
+    assert c.get(f"{API}/nutrition/targets").json()["status"] == "ok"
