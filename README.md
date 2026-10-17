@@ -29,7 +29,7 @@ log workouts, food and body weight.
 
 | Area | What it does |
 |---|---|
-| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); its session lasts 7 days. The account and all its data are hard-deleted on logout; if the user never logs out, they are deleted by the next cleanup after the session expires (see [Guest cleanup](#guest-cleanup)). Guest data cannot be moved into a regular account. |
+| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete; regular accounts confirm with the password, guests do not have one), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); its session lasts 7 days. The account and all its data are hard-deleted on logout; if the user never logs out, they are deleted by the next cleanup after the session expires (see [Guest cleanup](#guest-cleanup)). Guest data cannot be moved into a regular account. |
 | Consent | Explicit consent for health-related data at registration, stored with timestamp and policy version. The app is unusable without consent for the current version. |
 | Onboarding | Name, biological sex (for the formula only), birth date (18+ enforced server-side), height, weight, activity level, goal, 2–6 training days, experience, equipment (gym). |
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
@@ -37,8 +37,8 @@ log workouts, food and body weight.
 | Gym plan | Rule-based programs chosen by the user or automatically: Full Body (2–3 days), Upper/Lower (2, 4), Push/Pull/Legs (3, 5, 6), Bro Split (5). The plan has exactly one day per training day. 77 curated exercises (English gym names, original Romanian descriptions), each with its own rep scheme (heavy barbell lifts, machine/dumbbell compounds, isolation, hard bodyweight, calves, core, timed holds in seconds), sets adjusted by goal and experience, double-progression overload suggestions. Regenerated when plan inputs change; history kept. |
 | Workout log | Start the next day of the rotation, log/edit/delete sets, finish, paginated history. Any exercise can be replaced by one with the same movement pattern and a suitable level, either for today only or permanently in the plan (sets/reps follow the new exercise). |
 | Food log | Accent-insensitive search in the local foods table, private manual entries, daily totals vs targets. On request (button, not as-you-type), search in **Open Food Facts** (Romanian products, ODbL, attributed); results are cached locally, rate-limited and validated. Entries have a meal category (breakfast, lunch, dinner, snack), preselected from the time of day, and the day view is grouped by category. Recently logged foods are offered as one-tap shortcuts with the last quantity used. |
-| Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week), weekly averages, weight and training-volume charts with a table view. |
-| Settings | Theme (dark default / light), profile edit, retake screening, privacy policy, visible disclaimer on every app page. |
+| Progress | Weight log (updates the profile weight; targets are recomputed from the 7-day average at most once per week, while the BMI rule is re-checked on every entry added or deleted), weekly averages, weight and training-volume charts with a table view. |
+| Settings | Theme (dark default / light), profile edit (changing the biological sex resets the screening, which must then be taken again), retake screening, privacy policy, visible disclaimer on every app page. |
 
 Out of scope for V1: AI features (a disabled placeholder module exists, see
 [`backend/app/ai`](backend/app/ai/__init__.py)), payments, trainer roles, chat, push
@@ -87,9 +87,10 @@ backend/
     plans/         exercise library model, constants.py, generator.py, progression.py (pure)
     logs/          workouts + sets, meals, weights, progress aggregates
     ai/            V2 placeholder behind FEATURE_AI_MEAL_PARSING (off)
-  alembic/         migrations 0001–0006
+  alembic/         migrations 0001–0012
   seed/            exercises.py (77), foods.py (20 demo foods), `python -m seed`
   tests/           unit/ (rules, generator, progression, screening) + api/ (flows, permissions)
+scripts/           recompute_nutrition_cases.py (independent check of the reference cases)
 frontend/
   src/app/         routes: (auth)/, (app)/ (session + consent guard), (app)/(ready)/ (profile + screening gate)
   src/features/    auth, profile, nutrition, plans, logs, progress (mirrors the backend)
@@ -290,24 +291,31 @@ completed profile and a passed screening (`409 profile_missing | screening_requi
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/health` | No DB access; used to wake the backend |
-| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login/register rate-limited |
-| GET | `/auth/me` | includes `consent_required` |
-| POST | `/auth/consent` · `/auth/password` | password change ends all sessions |
-| GET / DELETE | `/account/export` · `/account` | delete requires the password |
-| GET / PUT | `/profile` | PUT recomputes targets and syncs the plan |
+| GET | `/api/health` | Outside `/api/v1`; no DB access; used to wake the backend |
+| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login limited per (email, IP) and per IP, registration per IP ([DECISIONS.md](DECISIONS.md)); logout of a guest deletes the guest account |
+| POST | `/auth/guest` | temporary account without credentials (`{consent: true}`), 7-day session; rate-limited per IP |
+| GET | `/auth/me` | includes `is_guest` and `consent_required` |
+| POST | `/auth/consent` · `/auth/password` | password change ends all sessions and starts a fresh one |
+| GET / DELETE | `/account/export` · `/account` | delete needs `{password}` for regular accounts; guests send `{}` |
+| GET / PUT | `/profile` | PUT recomputes targets and syncs the plan; a change of sex resets the screening |
 | POST | `/profile/screening` | answers evaluated in memory, only outcome stored |
 | GET | `/nutrition/targets` | `{status: ok, targets}` or `{status: blocked, reason}` |
-| GET / POST | `/foods?q=` · `/foods` | search (≥ 2 chars) · private manual food |
+| GET / POST | `/foods?q=` · `/foods` | local search (≥ 2 chars) · private manual food |
+| GET | `/foods/external?q=` | Open Food Facts search on an explicit button press (≥ 3 chars); results cached; 4/min per user, 8/min in total; `404` when `FOOD_SOURCE=none` |
 | GET | `/plans/current` · `/plans?limit&offset` · `/plans/{id}` | |
+| GET / PATCH | `/plans/exercises/{id}/alternatives` · `/plans/exercises/{id}` | same pattern, suitable level · permanent swap in the active plan (`{exercise_id}`) |
 | GET / POST | `/workouts/today` · `/workouts` | next rotation day + open session · start |
 | GET | `/workouts?limit&offset` · `/workouts/{id}` | detail has last sets + suggestion per exercise |
-| POST | `/workouts/{id}/sets` · `/workouts/{id}/finish` | |
+| POST | `/workouts/{id}/sets` · `/workouts/{id}/finish` | set response includes `is_record` |
+| POST | `/workouts/{id}/swaps` | swap for this session only (`{plan_exercise_id, exercise_id}`) |
 | PATCH / DELETE | `/sets/{id}` | |
 | GET / POST | `/meals?date=` · `/meals` | day entries, totals, targets |
+| GET | `/meals/recent?limit=` | recently logged foods with the last quantity |
 | PATCH / DELETE | `/meals/{id}` | |
-| POST / DELETE | `/weights` · `/weights/{id}` | POST returns `targets_updated` |
-| GET | `/progress/weight?weeks=` · `/progress/volume?weeks=` | weekly aggregates in SQL |
+| POST / DELETE | `/weights` · `/weights/{id}` | POST returns `targets_updated`; both re-apply the BMI rule |
+| GET | `/progress/weight?weeks=` · `/progress/volume?weeks=` · `/progress/records` | weekly aggregates in SQL · heaviest weight per exercise |
+| POST | `/internal/purge-guests` | `Authorization: Bearer <MAINTENANCE_TOKEN>`; `404` while the token is unset (see [Guest cleanup](#guest-cleanup)) |
+| POST | `/ai/meal-parse` | only mounted when `FEATURE_AI_MEAL_PARSING=true`; answers `501` |
 
 ## Local setup
 
@@ -346,7 +354,9 @@ Backend (`backend/.env.example`):
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins (production: the Netlify URL) |
 | `COOKIE_SECURE` | `true` | Keep `true` in production |
 | `SESSION_TTL_DAYS` | `14` | Session lifetime |
-| `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Attempts per IP and per email per window |
+| `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Login attempts per (email, IP), and registration/guest attempts per IP, per window |
+| `LOGIN_IP_RATE_LIMIT` | `20` | Login attempts per IP across all emails, per window |
+| `TRUSTED_PROXY_HOPS` | `0` | `X-Forwarded-For` entries added by trusted proxies, counted from the right; `1` on Render ([DECISIONS.md](DECISIONS.md)) |
 | `APP_TIMEZONE` | `Europe/Bucharest` | Groups workouts into local weeks |
 | `FOOD_SOURCE` | `none` | External food database: `none`, `open_food_facts` (or `mock` in tests) |
 | `OFF_USER_AGENT` | placeholder | Identifies the app to Open Food Facts: `App/Version (contact email)` |
@@ -450,31 +460,43 @@ the instance awake, but it counts against Render's free hours and is not set up.
 | Indexes on every `user_id` + date access path, partial unique indexes, GIN trigram index for food search | models / migrations |
 | Pagination without COUNT queries (fetch `limit + 1`) | `common/pagination.py`; plans and workout history |
 | No N+1: `selectinload` for plan → days → exercises; one aggregate query for workout history; two queries for "last sets" of all exercises (`DISTINCT ON`); weekly weight/volume aggregated in SQL | `plans/service.py`, `logs/service.py` |
-| Food lookups cached in the DB: external results are inserted into `foods` (`ON CONFLICT DO NOTHING`); the source is only queried when local results are few | `nutrition/service.py` |
+| Food lookups cached in the DB: external results are inserted into `foods` (`ON CONFLICT DO NOTHING`); the source is only queried when the user presses the search button, and the same term is not sent again for 24 h | `nutrition/service.py` |
 | Accent-insensitive search via a stored normalized column (no runtime `unaccent`) | `foods.search_name` |
 | Small DB pool (5 + 2) suited to free-tier connection limits; `pool_pre_ping` for Neon autosuspend | `common/db.py` |
 | Static generation for every page (static export); public pages are fully prerendered | `next.config.ts` |
-| Small bundle: no UI/data-fetching libraries (own 40-line hook); Chart.js tree-shaken (only used controllers registered) and loaded lazily with `next/dynamic` (~54 KB gzip chunk, only on the progress page) | `features/progress` |
+| Small bundle: no UI/data-fetching libraries (own 40-line hook); Chart.js tree-shaken (only used controllers registered) and loaded lazily with `next/dynamic` (one chunk of 161 KB raw / 56 KB gzip, measured on 2026-10-17 with `next build`, loaded only by the progress page) | `features/progress` |
 | Fonts self-hosted at build time by `next/font` (no runtime third-party request) | `app/layout.tsx` |
 | Images: no raster images in the UI; icons are pre-sized PNGs (192/512/180) plus one SVG. `next/image` optimization is unavailable in a static export, so nothing relies on it | `public/` |
 | Immutable caching for hashed assets; service worker caches the app shell only | `netlify.toml`, `public/sw.js` |
-| Rate limiting on login (per IP and per email) and registration (per IP) | `auth/router.py` |
+| Rate limiting on login (per IP and per email + IP) and registration (per IP); counters pruned in the background | `auth/router.py`, `common/rate_limit.py` |
 | Respect `prefers-reduced-motion` (CSS and chart animations) | `globals.css`, `Charts.tsx` |
 
 ## Security and privacy
 
 - Passwords: argon2id. Login timing is uniform for unknown emails.
 - Sessions: random 256-bit token in an **httpOnly, Secure, SameSite=Lax** cookie. Only its
-  SHA-256 is stored. Logout deletes the session. A password change or account deletion
-  invalidates all sessions.
+  SHA-256 is stored. Logout deletes the session (and the whole account for guests). A
+  password change or account deletion invalidates all sessions.
+- Rate limiting: login per (email, IP) and per IP, registration and guest start per IP.
+  The client IP is the right-most `X-Forwarded-For` hop added by Render, never the
+  client-supplied left-most value ([DECISIONS.md](DECISIONS.md)).
 - CSRF: Origin check plus a double-submit token bound to the session (HMAC).
 - Security headers on API and static site (CSP, HSTS, nosniff, frame-deny,
   referrer-policy, permissions-policy). The static site's CSP allows `'unsafe-inline'`
   scripts because the Next.js static export inlines its bootstrap data.
 - All input validated server-side (Pydantic + DB CHECK constraints); age is computed on the server.
 - Users can only access their own data, enforced in every query and tested.
-- No third-party trackers or analytics. No health data in logs: the app has no logging
-  of request data and Render runs uvicorn with `--no-access-log`.
+- No third-party trackers or analytics. No health data in logs: Render runs uvicorn with
+  `--no-access-log`; SQL errors never include bound parameters (`hide_parameters=True`);
+  unhandled exceptions are answered with a plain 500 and logged as exception type, route
+  template and code locations only, never the message (Postgres error messages quote the
+  failing row).
+- In memory only, never written anywhere: rate-limiter keys (IP, email + IP), dropped
+  once outside the 15-minute window, and Open Food Facts search terms, removed in under
+  24 hours by a background pruning thread.
+- Deletion: account deletion and guest cleanup hard-delete the rows immediately. Neon
+  keeps a history of the database for its point-in-time restore window (set per project
+  in Neon), so deleted rows stay recoverable there until that window passes.
 - Minimal data: the screening answers are never stored, only the outcome. Manual foods
   are private.
 - EU hosting: Neon and Render in Frankfurt. Netlify serves static files from its global CDN
@@ -493,8 +515,15 @@ current injury). **Any "yes"** means:
 - the user can retake the screening later; export and account deletion remain available.
 
 Weight-loss goals are also blocked when BMI is below `BMI_MIN_FOR_WEIGHT_LOSS`. This is
-checked when the profile is saved and on every target recompute, including recomputes
-triggered by new weight entries.
+checked when the profile is saved, on every target recompute, and on every weight entry
+added or deleted, against the current weight: weight-loss targets disappear as soon as
+the user crosses the threshold, without waiting for the weekly recompute. A weekly
+recompute also checks the current weight, so a 7-day average above the threshold cannot
+hide it.
+
+Changing the biological sex in the profile resets the screening outcome, because the
+pregnancy question depends on it. Targets and the plan are withheld until the screening
+is taken again.
 
 ### Constants that a qualified professional must validate
 
@@ -518,9 +547,12 @@ What has been done, and nothing more:
 1. **Unit tests with hand-derived values.** `tests/unit/test_nutrition_rules.py` checks every
    step (BMR, TDEE, deficit/surplus cap, calorie floor, macro split, edge cases). The
    arithmetic is written in the test comments.
-2. **Independent recomputation.** The three cases below were recomputed by a separate
-   script that does not import FitPlan code and uses exact fractions. All values matched
-   the app, and they are pinned in `tests/unit/test_nutrition_reference_cases.py`.
+2. **Independent recomputation.** The three cases below are recomputed by
+   [`scripts/recompute_nutrition_cases.py`](scripts/recompute_nutrition_cases.py), which
+   does not import FitPlan code, uses exact fractions and its own copy of the constants,
+   and exits with an error on any mismatch (`python3 scripts/recompute_nutrition_cases.py`).
+   All values match the app, and they are pinned in
+   `tests/unit/test_nutrition_reference_cases.py`.
 
 These checks show that **the code computes what the formulas and constants say**. They do
 not show that the formulas or constants are appropriate for users. **No health constant
@@ -550,8 +582,11 @@ there by design.
 - Bodyweight exercises are logged with 0 kg extra load, so they add no training volume.
 - Demo foods are rounded reference values. Open Food Facts data is crowd-sourced and may
   contain errors; see [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
-- The rate limiter is in memory (single instance). Behind proxies the per-IP limit relies on
-  `X-Forwarded-For`, which can be spoofed; the per-email limit still applies.
+- The rate limiter is in memory (single instance, reset on restart). Behind the Netlify
+  proxy the per-IP key is a Netlify egress address that many visitors share, so busy
+  periods can hit the registration limit. The Render hop count is taken from community
+  reports, not Render's docs, and has not been verified on the live service. See
+  [DECISIONS.md](DECISIONS.md).
 - The privacy policy contains placeholders for operator identity and contact, and needs
   legal review.
 
@@ -571,3 +606,8 @@ technical:
 4. **Open Food Facts.** Set `OFF_USER_AGENT`, fill in OFF's API usage form, and settle how to
    meet ODbL section 4.6 for the locally cached products. The full list is in
    [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
+5. **Proxy hop count.** Confirm how many `X-Forwarded-For` entries Render adds (Render
+   support or a header dump on a staging service) and keep `TRUSTED_PROXY_HOPS` in
+   line with it ([DECISIONS.md](DECISIONS.md)).
+6. **Neon restore window.** Check the project's history retention in Neon. The privacy
+   policy says deleted data stays in Neon's restore history until that window passes.
