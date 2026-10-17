@@ -17,8 +17,13 @@ class Settings(BaseSettings):
     session_ttl_days: int = 14
     # Used to group workouts into local calendar weeks.
     app_timezone: str = "Europe/Bucharest"
+    # Login attempts (successful or not) per (email, IP) pair, and per IP across all emails.
     login_rate_limit: int = 5
+    login_ip_rate_limit: int = 20
     login_rate_window_seconds: int = 15 * 60
+    # Number of X-Forwarded-For entries added by proxies we trust, counted from the right.
+    # 0 = ignore the header (direct connections, tests). See DECISIONS.md.
+    trusted_proxy_hops: int = 0
     # External food database: "none" (default), "open_food_facts" or "mock" (tests).
     food_source: str = "none"
     # Open Food Facts asks for "AppName/Version (contact email)"; set your own contact.
