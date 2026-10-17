@@ -9,6 +9,9 @@ CSRF uses two layers for unsafe methods (POST/PUT/PATCH/DELETE):
 
 import hashlib
 import hmac
+import logging
+import os
+import traceback
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
@@ -33,6 +36,9 @@ SECURITY_HEADERS = {
 }
 
 Handler = Callable[[Request], Awaitable[Response]]
+
+logger = logging.getLogger("fitplan.errors")
+_APP_DIR = f"{os.sep}app{os.sep}"
 
 
 def csrf_token_for(session_token: str) -> str:
@@ -62,3 +68,27 @@ async def security_headers_middleware(request: Request, call_next: Handler) -> R
     for name, value in SECURITY_HEADERS.items():
         response.headers.setdefault(name, value)
     return response
+
+
+async def safe_errors_middleware(request: Request, call_next: Handler) -> Response:
+    """Turn unhandled exceptions into a plain 500 and log them without their message.
+
+    Exception messages can contain personal data: Postgres puts the failing row in
+    constraint errors ("Failing row contains (...)"). Only the exception type, method,
+    route and stack frames (file, line, function) are logged, never values. Catching the
+    exception here keeps uvicorn from logging the full traceback.
+    """
+    try:
+        return await call_next(request)
+    except Exception as exc:
+        frames = traceback.extract_tb(exc.__traceback__)
+        # Our own frames are enough to find the bug; library frames would only add noise.
+        own = [f for f in frames if _APP_DIR in f.filename and f.name != "safe_errors_middleware"]
+        where = " <- ".join(
+            f"{f.filename.split(_APP_DIR)[-1]}:{f.lineno} {f.name}"
+            for f in reversed(own or frames[-1:])
+        )
+        route = request.scope.get("route")
+        path = getattr(route, "path", "?")  # template like /weights/{weight_id}, no values
+        logger.error("Unhandled %s in %s %s at %s", type(exc).__name__, request.method, path, where)
+        return JSONResponse(status_code=500, content={"detail": "internal_error"})

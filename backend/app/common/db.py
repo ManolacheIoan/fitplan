@@ -37,8 +37,13 @@ def str_enum(cls: type[StrEnum]) -> Enum:
 @lru_cache
 def get_engine() -> Engine:
     # Small pool: free-tier Postgres limits connections. pre_ping recovers after Neon autosuspend.
+    # hide_parameters: SQL errors never carry the bound values (weights, birth dates...).
     return create_engine(
-        get_settings().database_url, pool_size=5, max_overflow=2, pool_pre_ping=True
+        get_settings().database_url,
+        pool_size=5,
+        max_overflow=2,
+        pool_pre_ping=True,
+        hide_parameters=True,
     )
 
 

@@ -4,6 +4,7 @@ import time
 import unicodedata
 from datetime import UTC, datetime
 from decimal import Decimal
+from threading import Lock
 from typing import Any
 
 from sqlalchemy import delete, func, or_, select
@@ -11,6 +12,7 @@ from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.common.errors import DomainError
+from app.common.housekeeping import PRUNE_INTERVAL_SECONDS
 from app.common.rate_limit import RateLimiter
 from app.config import get_settings
 from app.nutrition import rules
@@ -126,13 +128,23 @@ def _search_local(db: Session, user_id: int, term: str, limit: int) -> list[Food
 # Open Food Facts allows ~10 searches/min per IP; stay below it for the whole app.
 external_limiter = RateLimiter(limit=8, window_seconds=60)
 external_user_limiter = RateLimiter(limit=4, window_seconds=60)
-SEARCHED_TERM_TTL_SECONDS = 24 * 3600
+# Searched terms are kept so the same text is not sent twice. The privacy policy promises
+# at most 24 hours in memory: the TTL leaves room for the housekeeping interval.
+SEARCHED_TERM_TTL_SECONDS = 24 * 3600 - 2 * PRUNE_INTERVAL_SECONDS
 _searched_terms: dict[tuple[str, str], float] = {}
+_searched_terms_lock = Lock()
 
 
 def _recently_searched(source: str, term: str) -> bool:
     expires = _searched_terms.get((source, term))
     return expires is not None and expires > time.monotonic()
+
+
+def prune_searched_terms() -> None:
+    now = time.monotonic()
+    with _searched_terms_lock:
+        for key in [k for k, expires in _searched_terms.items() if expires <= now]:
+            del _searched_terms[key]
 
 
 def reset_external_search_state() -> None:
@@ -187,7 +199,8 @@ def search_external(db: Session, user_id: int, query: str, limit: int) -> list[F
         except FoodSourceError:
             raise DomainError("food_source_unavailable", 503) from None
         _cache_external(db, items)
-        _searched_terms[(source.name, term)] = time.monotonic() + SEARCHED_TERM_TTL_SECONDS
+        with _searched_terms_lock:
+            _searched_terms[(source.name, term)] = time.monotonic() + SEARCHED_TERM_TTL_SECONDS
     return list(
         db.scalars(
             select(Food)
