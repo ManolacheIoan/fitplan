@@ -12,7 +12,7 @@ formulas or the constants.
 """
 
 import sys
-from decimal import ROUND_HALF_EVEN, Decimal
+from decimal import ROUND_HALF_EVEN, ROUND_HALF_UP, Decimal
 from fractions import Fraction as F
 
 # Documented constants (README "Constants that a qualified professional must validate").
@@ -24,13 +24,13 @@ KCAL_PER_KG = F(7700)
 FLOOR = {"male": 1500, "female": 1200}
 PROTEIN_PER_KG = {"lose": F(2), "maintain": F("1.6"), "gain": F("1.8")}
 MIN_FAT_SHARE = F("0.25")
-# Integer rounding used by the app for kcal (to 10), protein and fat.
-ROUNDING = ROUND_HALF_EVEN
+# Rounding used by the app: kcal to the nearest 10 with Python's round() (halves to even),
+# protein and fat grams halves up (RULES_VERSION 2), carbohydrates down.
 
 
-def round_int(value: F) -> int:
+def round_int(value: F, mode: str) -> int:
     return int(
-        (Decimal(value.numerator) / Decimal(value.denominator)).quantize(0, ROUNDING)
+        (Decimal(value.numerator) / Decimal(value.denominator)).quantize(0, mode)
     )
 
 
@@ -45,9 +45,9 @@ def compute(sex: str, age: int, height: int, weight: int, activity: str, goal: s
         change = min(tdee * fraction, cap)
         target = tdee - change if goal == "lose" else tdee + change
     target = max(target, F(FLOOR[sex]))
-    kcal = round_int(target / 10) * 10
-    fat = round_int(kcal * MIN_FAT_SHARE / 9)
-    protein = round_int(weight * PROTEIN_PER_KG[goal])
+    kcal = round_int(target / 10, ROUND_HALF_EVEN) * 10
+    fat = round_int(kcal * MIN_FAT_SHARE / 9, ROUND_HALF_UP)
+    protein = round_int(weight * PROTEIN_PER_KG[goal], ROUND_HALF_UP)
     remaining = kcal - 9 * fat - 4 * protein
     if remaining < 0:
         protein, carbs = max(0, (kcal - 9 * fat) // 4), 0
@@ -73,8 +73,8 @@ CASES = {
         "3113.625",
         3330,
         144,
-        92,
-        481,
+        93,
+        479,
     ),
     "C": (
         ("male", 45, 175, 95, "light", "maintain"),

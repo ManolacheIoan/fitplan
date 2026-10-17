@@ -9,19 +9,21 @@ Pipeline:
 4. Calorie floor: the target never goes below CALORIE_FLOOR for the given sex.
 5. Macros: protein = g/kg * body weight; fat = at least MIN_FAT_FRACTION of calories;
    carbohydrates = the remaining calories. If protein + minimum fat exceed the target,
-   protein is reduced first and carbohydrates become 0.
+   protein is reduced first and carbohydrates become 0. Protein and fat grams are rounded
+   half up (92.5 -> 93); carbohydrates are rounded down so the total never exceeds the target.
 
 All results are approximate estimates. Every constant is in
 app/common/health_constants.py and must be validated by a qualified professional.
 """
 
+import math
 from dataclasses import dataclass
 
 from app.common import health_constants as hc
 from app.profile.models import ActivityLevel, Goal, Sex
 
 # Increment whenever a formula or constant changes, so stored targets can be traced.
-RULES_VERSION = 1
+RULES_VERSION = 2  # 2: macros rounded half up instead of half to even
 
 
 @dataclass(frozen=True)
@@ -81,10 +83,15 @@ def apply_floor(kcal: float, sex: Sex) -> tuple[float, bool]:
     return (float(floor), True) if kcal < floor else (kcal, False)
 
 
+def round_half_up(value: float) -> int:
+    """Round to the nearest integer, halves up (Python's round() rounds halves to even)."""
+    return math.floor(value + 0.5)
+
+
 def macros(kcal: int, weight_kg: float, goal: Goal) -> tuple[int, int, int]:
     """Return (protein_g, fat_g, carbs_g) for a calorie target."""
-    fat_g = round(kcal * hc.MIN_FAT_FRACTION / hc.KCAL_PER_G_FAT)
-    protein_g = round(weight_kg * hc.PROTEIN_G_PER_KG[goal.value])
+    fat_g = round_half_up(kcal * hc.MIN_FAT_FRACTION / hc.KCAL_PER_G_FAT)
+    protein_g = round_half_up(weight_kg * hc.PROTEIN_G_PER_KG[goal.value])
     remaining = kcal - fat_g * hc.KCAL_PER_G_FAT - protein_g * hc.KCAL_PER_G_PROTEIN
     if remaining < 0:
         # Protein + minimum fat exceed the target: reduce protein, no carbohydrates left.
