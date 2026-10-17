@@ -38,12 +38,18 @@ def recompute(db: Session, profile: Profile, weight_kg: Decimal | None = None) -
     """Recompute targets from `weight_kg` (default: profile weight).
 
     Targets are removed instead when screening did not pass or a safety rule blocks them.
+    The BMI rule is checked against both the weight used and the current profile weight,
+    so a weekly average above the threshold cannot hide a current weight below it.
     Does not commit.
     """
     weight = weight_kg if weight_kg is not None else profile.weight_kg
     db.execute(delete(NutritionTarget).where(NutritionTarget.user_id == profile.user_id))
     db.flush()
-    if profile.screening_status is not ScreeningStatus.PASSED or blocked_reason(profile, weight):
+    if (
+        profile.screening_status is not ScreeningStatus.PASSED
+        or blocked_reason(profile, weight)
+        or blocked_reason(profile, profile.weight_kg)
+    ):
         return
     age = screening.age_on(profile.birth_date, datetime.now(UTC).date())
     result = rules.compute_targets(
