@@ -10,6 +10,7 @@ from app.nutrition.rules import (
     energy_target,
     macros,
     max_daily_adjustment,
+    round_half_up,
     tdee,
 )
 from app.profile.models import ActivityLevel, Goal, Sex
@@ -112,3 +113,33 @@ def test_protein_reduced_when_it_would_exceed_calories():
     protein, fat, carbs = macros(1200, 150, Goal.LOSE)
     # fat = 33 g (297 kcal); protein limited to (1200 - 297) // 4 = 225 g; no carbohydrates
     assert (protein, fat, carbs) == (225, 33, 0)
+
+
+def test_floor_can_raise_a_weight_loss_target_above_maintenance():
+    # BMR = 450 + 937.5 - 300 - 161 = 926.5; TDEE = 926.5 * 1.2 = 1111.8 < 1200 floor.
+    t = compute_targets(
+        make(
+            sex=Sex.FEMALE,
+            age_years=60,
+            height_cm=150,
+            weight_kg=45,
+            activity_level=ActivityLevel.SEDENTARY,
+            goal=Goal.LOSE,
+        )
+    )
+    assert (t.tdee_kcal, t.kcal, t.floor_applied) == (1112, 1200, True)
+    assert t.kcal > t.tdee_kcal
+    # The estimate honestly shows a gain, not a loss: (1200 - 1111.8) * 7 / 7700 = 0.08 kg.
+    assert t.weekly_change_kg == pytest.approx(0.08)
+    # Macros are computed from the floor-raised target: fat 33 g, protein 90 g, carbs 135 g.
+    assert (t.protein_g, t.fat_g, t.carbs_g) == (90, 33, 135)
+
+
+@pytest.mark.parametrize(("value", "expected"), [(92.5, 93), (49.5, 50), (49.4, 49), (0.5, 1)])
+def test_macros_round_half_up(value: float, expected: int):
+    assert round_half_up(value) == expected
+
+
+def test_fat_half_gram_is_rounded_up():
+    # 3330 kcal * 25 % / 9 = 92.5 g; half to even would give 92.
+    assert macros(3330, 80, Goal.GAIN)[1] == 93

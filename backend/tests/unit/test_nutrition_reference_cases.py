@@ -26,8 +26,8 @@ CASES = [
         3114,
         3330,
         144,
-        92,
-        481,
+        93,  # 92.5 rounded half up
+        479,
     ),
     (
         NutritionInput(Sex.MALE, 45, 175, 95, ActivityLevel.LIGHT, Goal.MAINTAIN),
