@@ -9,6 +9,8 @@ log workouts, food and body weight.
 > All health-related constants are placeholders that **must be validated by a qualified
 > professional before public use**. See [Safety and limitations](#safety-and-limitations).
 
+![FitPlan landing page: gym plan, nutrition estimates, progress charts and safety screening](docs/screenshot.webp)
+
 ## Contents
 
 - [Features](#features)
