@@ -34,18 +34,12 @@ class PasswordChangeIn(BaseModel):
     new_password: str = Password
 
 
-class GuestIn(BaseModel):
-    consent: Literal[True]
-
-
 class AccountDeleteIn(BaseModel):
-    # Not required for guest accounts, which have no password.
-    password: str | None = Field(default=None, min_length=1, max_length=PASSWORD_MAX_LENGTH)
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH)
 
 
 class MeOut(BaseModel):
-    email: str | None
-    is_guest: bool
+    email: str
     created_at: datetime
     consent_required: bool
     policy_version: str

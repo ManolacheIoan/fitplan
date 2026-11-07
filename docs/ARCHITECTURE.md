@@ -13,7 +13,7 @@ FitPlan are trei bucăți mari:
 - **Backend** – un API **FastAPI** (Python) care rulează pe **Render** (plan gratuit).
 - **Baza de date** – **PostgreSQL** găzduit pe **Neon** (plan gratuit).
 
-Plus două servicii externe: **Open Food Facts** (căutare alimente) și **GitHub Actions** (rulează zilnic curățenia conturilor de vizitator).
+Plus un serviciu extern: **Open Food Facts** (căutare alimente). Aplicația nu are mod vizitator: orice utilizare cere un cont cu email și parolă.
 
 ```mermaid
 flowchart LR
@@ -31,14 +31,12 @@ flowchart LR
         DB[("PostgreSQL")]
     end
     OFF["Open Food Facts"]
-    GHA["GitHub Actions<br/>(zilnic, 03:17 UTC)"]
 
     UI --> Static
     UI -->|"fetch /api/... + cookie de sesiune"| Proxy
     Proxy -->|HTTPS| API
     API -->|"SQLAlchemy / psycopg 3"| DB
     API -->|"căutare la cerere, limitată"| OFF
-    GHA -->|"POST /internal/purge-guests<br/>Bearer token"| API
 ```
 
 **Ideea cheie:** browserul crede că vorbește cu un singur site (Netlify). Netlify trimite în spate tot ce începe cu `/api/` către Render. De aceea cookie-ul de sesiune e „first-party” și nu e blocat de browser.
@@ -70,7 +68,7 @@ Regula de reținut: **frontendul doar ascunde/arată lucruri; backendul decide c
 | **FastAPI** | Tot API-ul: rute, validare (Pydantic), dependențe pentru autentificare | vs **Django**: mai mic, validare automată din tipuri, ușor de testat. Django ar fi dat gratis admin, sesiuni și CSRF | Securitatea (sesiuni, CSRF, rate limiting) e scrisă de mână → mai mult cod de întreținut și mai mult loc pentru greșeli |
 | **PostgreSQL** | Stochează tot; constrângeri (CHECK, unique, `ON DELETE CASCADE`), index trigram pentru căutarea alimentelor | vs **SQLite**: suportă mai mulți utilizatori simultan, există gratuit hostat (Neon), are `pg_trgm` | Ai nevoie de un server; pe Neon free baza „adoarme” și prima cerere e mai lentă |
 | **SQLAlchemy 2** | ORM: clase Python ↔ tabele; interogări cu `select(...)` | vs **SQL brut**: mai puțin cod repetitiv, tipuri verificate de mypy | Încă un strat de învățat; e ușor să scrii fără să vrei interogări ineficiente (N+1) |
-| **Alembic** | Migrări: istoric versionat al schemei (`0001`–`0012`) | vs `Base.metadata.create_all()`: poți modifica o bază existentă fără să pierzi date. CI rulează `alembic check` ca să prindă diferențe model ↔ migrare | Migrările se scriu/verifică manual; pe Render rulează la fiecare pornire (încetinește cold start-ul) |
+| **Alembic** | Migrări: istoric versionat al schemei (`0001`–`0013`) | vs `Base.metadata.create_all()`: poți modifica o bază existentă fără să pierzi date. CI rulează `alembic check` ca să prindă diferențe model ↔ migrare | Migrările se scriu/verifică manual; pe Render rulează la fiecare pornire (încetinește cold start-ul) |
 | **Next.js (static export)** | UI-ul React, rutare pe foldere; build-ul produce fișiere statice în `out/` | vs **Vite + React Router**: rutare și structură gata făcute | Sincer: e cea mai discutabilă alegere. Cu export static nu folosești nimic din partea de server a Next.js (SSR, rute API). Vite ar fi fost mai simplu. Plus: în dev se folosesc `rewrites`, în producție regula de proxy din `netlify.toml`, deci două mecanisme diferite pentru același proxy |
 | **Tailwind CSS** | Stilizare direct în clase (`className="p-4 ..."`), temă dark/light | vs **CSS Modules**: rapid de scris, fără fișiere CSS separate, CSS final mic | JSX-ul devine lung și greu de citit; e ușor să repeți aceleași combinații de clase |
 | **Chart.js** | Graficele de greutate și volum, încărcate lazy (doar pe pagina de progres) | vs **Recharts**: mai mic, merge pe canvas, rapid | Nu e „React-native”: trebuie un wrapper; accesibilitatea e slabă, de aceea există și vizualizare tabel |
@@ -97,7 +95,7 @@ Fiecare modul are de obicei: `models.py` (tabele), `schemas.py` (forma JSON a ce
 | `main.py` | Creează aplicația, adaugă middleware-uri și rute, `/api/health` | o rută nu există, ordinea middleware-urilor |
 | `config.py` | Setări din variabile de mediu | o setare nu se aplică |
 | `common/` | `db.py` (conexiune), `security.py` (CSRF, headere), `rate_limit.py`, `pagination.py`, `errors.py`, `health_constants.py` | 403 `csrf_failed`, probleme de conexiune, constante de sănătate |
-| `auth/` | Conturi, parole, sesiuni, consimțământ, vizitatori, export, ștergere cont, curățenie | login, cookie, 401/403, conturi de vizitator |
+| `auth/` | Conturi, parole, sesiuni, consimțământ, export, ștergere cont | login, cookie, 401/403 |
 | `profile/` | Chestionar, `screening.py` (reguli pure), poarta `ready_profile` | 409 `profile_missing` / `screening_required`, vârstă, IMC |
 | `nutrition/` | `rules.py` (formule pure), ținte, alimente, `food_sources/` (Open Food Facts + mock) | calorii/macro greșite, căutare alimente |
 | `plans/` | `constants.py` (serii/repetări), `generator.py`, `progression.py` (pure), înlocuire exerciții | plan greșit, sugestii de progres |
@@ -127,7 +125,7 @@ Configurare: `render.yaml` (backend), `frontend/netlify.toml` + `scripts/configu
 
 | Tabelă | La ce folosește |
 |---|---|
-| `users` | Contul: email, hash de parolă (argon2id), `is_guest` |
+| `users` | Contul: email și hash de parolă (argon2id), ambele obligatorii |
 | `sessions` | Sesiunile de login: **hash-ul** tokenului și data expirării |
 | `consents` | Ce versiune a politicii de confidențialitate a acceptat utilizatorul și când |
 | `profiles` | Datele din chestionar + **doar rezultatul** screening-ului (nu răspunsurile) |
@@ -152,13 +150,12 @@ Toate tabelele care aparțin unui utilizator au cheie străină spre `users` cu 
 | Mecanism | Cum funcționează | Cod | Teste care o dovedesc |
 |---|---|---|---|
 | **Parole** | Nu se salvează parola, ci un hash **argon2id** (lent intenționat, ca să fie greu de spart). Pentru emailuri inexistente se verifică un hash fals, ca timpul de răspuns să nu dezvăluie dacă emailul există | `auth/service.py` | `test_login_wrong_password`, `test_register_validates_password_length` (indirect; niciun test nu verifică explicit formatul argon2id) |
-| **Sesiuni** | La login se generează un token aleator (256 biți). Browserul îl primește în cookie; în DB se pune doar **SHA-256** al lui, deci un DB furat nu conține tokenuri folosibile. Expiră după 14 zile (vizitatori: 7). Schimbarea parolei șterge toate sesiunile | `auth/service.py` | `test_logout_invalidates_session`, `test_password_change_invalidates_all_other_sessions`, `test_me_requires_session` |
+| **Sesiuni** | La login se generează un token aleator (256 biți). Browserul îl primește în cookie; în DB se pune doar **SHA-256** al lui, deci un DB furat nu conține tokenuri folosibile. Expiră după 14 zile. Schimbarea parolei șterge toate sesiunile | `auth/service.py` | `test_logout_invalidates_session`, `test_password_change_invalidates_all_other_sessions`, `test_me_requires_session` |
 | **Cookie-uri** | `fitplan_session`: `HttpOnly` (JavaScript nu-l poate citi → protecție XSS), `Secure` (doar HTTPS), `SameSite=Lax`. `fitplan_csrf`: citibil de JS, folosit pentru CSRF | `auth/router.py` | `test_register_sets_httponly_secure_session_and_records_consent` |
 | **CSRF** | Două straturi la POST/PATCH/DELETE: (1) header-ul `Origin`, dacă există, trebuie să fie în lista permisă; (2) header-ul `X-CSRF-Token` trebuie să fie egal cu `HMAC(SECRET_KEY, token sesiune)`. Un site străin nu poate citi cookie-ul tău CSRF, deci nu poate trimite header-ul corect | `common/security.py` | `test_unsafe_request_without_csrf_token_is_rejected`, `test_request_from_foreign_origin_is_rejected` |
-| **Rate limiting** | Numără încercările într-o fereastră de timp, **în memoria procesului**. Login: 5 / 15 min per pereche (email, IP) și 20 / 15 min per IP, deci un străin nu poate bloca contul altcuiva. Înregistrare și vizitator: 5 / 15 min per IP. Plus o limită globală „soft” (300 / 15 min pentru toată aplicația, `429 auth_busy` cu mesaj clar); contează doar încercările care au trecut de limitele per vizitator, deci un singur vizitator nu o poate epuiza. IP-ul vizitatorului vine din `X-Nf-Client-Connection-Ip` **doar** dacă cererea are secretul proxy-ului Netlify (comparat în timp constant); altfel se folosește adresa care s-a conectat la Render. Open Food Facts: 4/min per utilizator, 8/min în total | `common/client_ip.py`, `common/rate_limit.py`, `auth/router.py`, `nutrition/service.py` | `test_spoofed_forwarded_for_with_secret_does_not_bypass_the_limit`, `test_wrong_secret_cannot_rotate_visitor_ips`, `test_many_visitors_behind_one_proxy_ip_are_limited_separately`, `test_one_visitor_cannot_exhaust_the_global_limit`, `test_stranger_cannot_lock_the_owner_out` |
-| **Izolarea datelor** | Fiecare interogare filtrează după `user_id` (ex. `_own_session`, `_own_set`, `_own_meal`). Dacă resursa e a altcuiva → **404** (nu 403, ca să nu confirme că există) | `logs/service.py` și celelalte `service.py` | `test_users_cannot_touch_each_others_workouts`, `test_users_cannot_touch_each_others_meals`, `test_cannot_read_another_users_plan`, `test_weight_validation_and_isolation`, `test_guests_are_isolated_from_each_other`, `test_manual_food_is_private` |
+| **Rate limiting** | Numără încercările într-o fereastră de timp, **în memoria procesului**. Login: 5 / 15 min per pereche (email, IP) și 20 / 15 min per IP, deci un străin nu poate bloca contul altcuiva. Înregistrare: 5 / 15 min per IP. Plus o limită globală „soft” (300 / 15 min pentru toată aplicația, `429 auth_busy` cu mesaj clar); contează doar încercările care au trecut de limitele per vizitator, deci un singur vizitator nu o poate epuiza. IP-ul vizitatorului vine din `X-Nf-Client-Connection-Ip` **doar** dacă cererea are secretul proxy-ului Netlify (comparat în timp constant); altfel se folosește adresa care s-a conectat la Render. Open Food Facts: 4/min per utilizator, 8/min în total | `common/client_ip.py`, `common/rate_limit.py`, `auth/router.py`, `nutrition/service.py` | `test_spoofed_forwarded_for_with_secret_does_not_bypass_the_limit`, `test_wrong_secret_cannot_rotate_visitor_ips`, `test_many_visitors_behind_one_proxy_ip_are_limited_separately`, `test_one_visitor_cannot_exhaust_the_global_limit`, `test_stranger_cannot_lock_the_owner_out` |
+| **Izolarea datelor** | Fiecare interogare filtrează după `user_id` (ex. `_own_session`, `_own_set`, `_own_meal`). Dacă resursa e a altcuiva → **404** (nu 403, ca să nu confirme că există) | `logs/service.py` și celelalte `service.py` | `test_users_cannot_touch_each_others_workouts`, `test_users_cannot_touch_each_others_meals`, `test_cannot_read_another_users_plan`, `test_weight_validation_and_isolation`, `test_manual_food_is_private` |
 | **Loguri fără date personale** | Erorile SQL nu includ parametrii (`hide_parameters=True`). O excepție neprinsă devine un 500 simplu și se loghează doar tipul, ruta (șablonul, fără valori) și locul din cod, niciodată mesajul: Postgres pune rândul care a eșuat în mesaj | `common/db.py`, `common/security.py` | `test_unhandled_errors_are_logged_without_values`, `test_engine_hides_sql_parameters` |
-| **Endpoint de curățenie** | Cere `Authorization: Bearer <MAINTENANCE_TOKEN>`, comparat în timp constant; fără token configurat răspunde 404 | `auth/router.py` | `test_purge_endpoint_rejects_wrong_token`, `test_purge_endpoint_disabled_without_token` |
 
 **Limite reale (sincer):**
 - Rate limiter-ul e în memorie: se resetează la fiecare restart (pe Render free, după fiecare „adormire”) și nu funcționează cu mai multe instanțe.
@@ -193,13 +190,12 @@ Frontendul se ocupă de asta în `lib/api.ts`: înainte de cereri cheamă `/api/
 
 **Proxy.** Build-ul Netlify rulează `node scripts/configure-proxy.mjs && npm run build`. Scriptul înlocuiește în regula `[[redirects]]` din `netlify.toml` adresa Render (`BACKEND_URL`) și secretul (`PROXY_SECRET`); Netlify citește regulile abia după build, deci înlocuirea are efect (metodă documentată de Netlify). Regula este `/api/*  https://<render>/api/:splat  200` cu `force = true`. `200` înseamnă „proxy, nu redirect”, deci URL-ul din browser rămâne Netlify și cookie-urile sunt same-site. În dev, același lucru îl face `rewrites` din `next.config.ts`.
 
-**Curățenie.** Conturile de vizitator expirate se șterg (1) oportunist, la login/înregistrare/start vizitator, și (2) zilnic, de `.github/workflows/purge-guests.yml`, care face `curl` cu reîncercări (backendul poate dormi) la `/api/v1/internal/purge-guests`. Sesiunile expirate ale unui utilizator se șterg când își face login.
+**Curățenie.** Sesiunile expirate ale unui utilizator se șterg când își face login. Nu există job programat: modul vizitator, care avea nevoie de curățenie zilnică, a fost scos (migrarea `0013` a șters conturile de vizitator rămase).
 
 **Ce se poate strica:**
 - Proxy-ul Netlify are timeout mai scurt decât un cold start → primele cereri dau 502/504 (acoperit de ping-ul de health).
 - `BACKEND_URL` sau `PROXY_SECRET` lipsă la build → scriptul oprește build-ul. Secret diferit între Netlify și Render → cererile sunt tratate ca „direct”, deci toți vizitatorii împart adresa Netlify la limitele pe IP (se vede la verificarea de după deploy din README).
 - `ALLOWED_ORIGINS` greșit → toate POST-urile dau 403 `csrf_failed`.
-- Secretele GitHub lipsă → curățenia e sărită cu un simplu warning; GitHub poate dezactiva workflow-urile programate în repo-uri inactive 60 de zile.
 - Rate limiter-ul se resetează la fiecare adormire (vezi secțiunea 5).
 - O migrare care eșuează la start → serviciul nu pornește deloc.
 - Limitele planurilor gratuite (ore Render, compute/stocare Neon) pot opri serviciul.
@@ -208,7 +204,7 @@ Frontendul se ocupă de asta în `lib/api.ts`: înainte de cereri cheamă `/api/
 
 ## Anexă: unde documentația nu se potrivea cu codul (corectat)
 
-1. **README, „Project structure”**: scria `migrations 0001–0006`; acum `0001`–`0012`.
+1. **README, „Project structure”**: scria `migrations 0001–0006`; acum `0001`–`0013`.
 2. **`next.config.ts`**: comentariul despre proxy era greșit; acum regula chiar e în `netlify.toml` (completată de `scripts/configure-proxy.mjs`), iar comentariul spune asta.
 3. **README, API / Security**: limita pe IP putea fi ocolită prin `X-Forwarded-For`. Rezolvat (vezi secțiunea 5 și [DECISIONS.md](../DECISIONS.md)).
 4. **„17 tabele”**: nu apare nicăieri; corect este 15 (16 cu `alembic_version`).

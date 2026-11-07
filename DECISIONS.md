@@ -66,8 +66,8 @@ on the live deployment.
 |---|---|---|---|
 | Login per account and visitor | (email, client IP) | 5 / 15 min | always |
 | Login per visitor | client IP | 20 / 15 min | not `netlify-fallback` |
-| Registration + guest start per visitor | client IP | 5 / 15 min | not `netlify-fallback` |
-| **Global soft limit** | whole app (login + registration + guest) | 300 / 15 min (`AUTH_GLOBAL_LIMIT`) | always, counted last |
+| Registration per visitor | client IP | 5 / 15 min | not `netlify-fallback` |
+| **Global soft limit** | whole app (login + registration) | 300 / 15 min (`AUTH_GLOBAL_LIMIT`) | always, counted last |
 
 - Checks stop at the first refusal. Only attempts that passed the per-visitor limits count
   towards the global limit, so one visitor can add at most 20 login and 5 sign-up attempts

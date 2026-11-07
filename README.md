@@ -31,7 +31,7 @@ log workouts, food and body weight.
 
 | Area | What it does |
 |---|---|
-| Account | Register, login, logout, change password (ends all other sessions), delete account (hard delete; regular accounts confirm with the password, guests do not have one), export all data as JSON. **Guest mode**: "Continuă ca vizitator" creates a temporary account without email/password (consent still required); its session lasts 7 days. The account and all its data are hard-deleted on logout; if the user never logs out, they are deleted by the next cleanup after the session expires (see [Guest cleanup](#guest-cleanup)). Guest data cannot be moved into a regular account. |
+| Account | An account (email + password) is required; there is no guest mode. Register, login, logout, change password (ends all other sessions), delete account (hard delete, confirmed with the password), export all data as JSON. |
 | Consent | Explicit consent for health-related data at registration, stored with timestamp and policy version. The app is unusable without consent for the current version. |
 | Onboarding | Name, biological sex (for the formula only), birth date (18+ enforced server-side), height, weight, activity level, goal, 2–6 training days, experience, equipment (gym). |
 | Safety screening | Pregnancy/breastfeeding, diagnosed medical conditions, eating-disorder history, current injuries. Any "yes" turns the app into an information-only page that recommends a doctor or accredited professional. **Only the outcome is stored, never the answers.** |
@@ -89,7 +89,7 @@ backend/
     plans/         exercise library model, constants.py, generator.py, progression.py (pure)
     logs/          workouts + sets, meals, weights, progress aggregates
     ai/            V2 placeholder behind FEATURE_AI_MEAL_PARSING (off)
-  alembic/         migrations 0001–0012
+  alembic/         migrations 0001–0013
   seed/            exercises.py (77), foods.py (20 demo foods), `python -m seed`
   tests/           unit/ (rules, generator, progression, screening) + api/ (flows, permissions)
 scripts/           recompute_nutrition_cases.py (independent check of the reference cases)
@@ -129,9 +129,8 @@ erDiagram
 
     users {
         int id PK
-        string email "null for guests, unique"
-        string password_hash "argon2id, null for guests"
-        bool is_guest
+        string email "unique"
+        string password_hash "argon2id"
         timestamptz created_at
     }
     sessions {
@@ -268,7 +267,7 @@ so deleting the user row deletes everything.
 
 | Table | Purpose | Notable constraints / indexes |
 |---|---|---|
-| `users` | email (lower-cased), argon2id hash, `is_guest` | unique email; CHECK: guest or both credentials set |
+| `users` | email (lower-cased), argon2id hash | unique email; email and hash required |
 | `sessions` | SHA-256 hash of the session token, expiry | unique token hash; idx user_id, expires_at |
 | `consents` | policy version + accepted_at | unique (user_id, policy_version) |
 | `profiles` | questionnaire (incl. program choice) + **screening outcome and timestamp only** | CHECK height 120–230, weight 30–300, days 2–6, enums |
@@ -294,11 +293,10 @@ completed profile and a passed screening (`409 profile_missing | screening_requi
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/api/health` | Outside `/api/v1`; no DB access; used to wake the backend |
-| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login limited per (email, IP) and per IP, registration per IP, plus a global soft limit (`429 auth_busy`) ([DECISIONS.md](DECISIONS.md)); logout of a guest deletes the guest account |
-| POST | `/auth/guest` | temporary account without credentials (`{consent: true}`), 7-day session; rate-limited per IP |
-| GET | `/auth/me` | includes `is_guest` and `consent_required` |
+| POST | `/auth/register` · `/auth/login` · `/auth/logout` | login limited per (email, IP) and per IP, registration per IP, plus a global soft limit (`429 auth_busy`) ([DECISIONS.md](DECISIONS.md)) |
+| GET | `/auth/me` | includes `consent_required` |
 | POST | `/auth/consent` · `/auth/password` | password change ends all sessions and starts a fresh one |
-| GET / DELETE | `/account/export` · `/account` | delete needs `{password}` for regular accounts; guests send `{}` |
+| GET / DELETE | `/account/export` · `/account` | delete needs `{password}` |
 | GET / PUT | `/profile` | PUT recomputes targets and syncs the plan; a change of sex resets the screening |
 | POST | `/profile/screening` | answers evaluated in memory, only outcome stored |
 | GET | `/nutrition/targets` | `{status: ok, targets}` or `{status: blocked, reason}` |
@@ -316,7 +314,6 @@ completed profile and a passed screening (`409 profile_missing | screening_requi
 | PATCH / DELETE | `/meals/{id}` | |
 | POST / DELETE | `/weights` · `/weights/{id}` | POST returns `targets_updated`; both re-apply the BMI rule |
 | GET | `/progress/weight?weeks=` · `/progress/volume?weeks=` · `/progress/records` | weekly aggregates in SQL · heaviest weight per exercise |
-| POST | `/internal/purge-guests` | `Authorization: Bearer <MAINTENANCE_TOKEN>`; `404` while the token is unset (see [Guest cleanup](#guest-cleanup)) |
 | POST | `/ai/meal-parse` | only mounted when `FEATURE_AI_MEAL_PARSING=true`; answers `501` |
 
 ## Local setup
@@ -356,9 +353,9 @@ Backend (`backend/.env.example`):
 | `ALLOWED_ORIGINS` | `http://localhost:3000` | Comma-separated browser origins (production: the Netlify URL) |
 | `COOKIE_SECURE` | `true` | Keep `true` in production |
 | `SESSION_TTL_DAYS` | `14` | Session lifetime |
-| `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Login attempts per (email, IP), and registration/guest attempts per IP, per window |
+| `LOGIN_RATE_LIMIT` / `LOGIN_RATE_WINDOW_SECONDS` | `5` / `900` | Login attempts per (email, IP), and registration attempts per IP, per window |
 | `LOGIN_IP_RATE_LIMIT` | `20` | Login attempts per IP across all emails, per window |
-| `AUTH_GLOBAL_LIMIT` | `300` | Whole-app login + registration + guest attempts per window; above it the API answers `429 auth_busy` |
+| `AUTH_GLOBAL_LIMIT` | `300` | Whole-app login + registration attempts per window; above it the API answers `429 auth_busy` |
 | `TRUSTED_PROXY_HOPS` | `0` | `X-Forwarded-For` entries added by trusted proxies, counted from the right; `1` on Render ([DECISIONS.md](DECISIONS.md)) |
 | `PROXY_SECRET` | empty | Shared with Netlify; only requests carrying it in `X-FitPlan-Proxy-Secret` may name the visitor IP (`X-Nf-Client-Connection-Ip`); ≥ 32 characters |
 | `LOG_CLIENT_IP_RESOLUTION` | `false` | Deploy check only: logs how the client IP was resolved (masked /24 or /48) |
@@ -366,7 +363,6 @@ Backend (`backend/.env.example`):
 | `FOOD_SOURCE` | `none` | External food database: `none`, `open_food_facts` (or `mock` in tests) |
 | `OFF_USER_AGENT` | placeholder | Identifies the app to Open Food Facts: `App/Version (contact email)` |
 | `FEATURE_AI_MEAL_PARSING` | `false` | V2 placeholder; keep `false` |
-| `MAINTENANCE_TOKEN` | empty (disabled) | Bearer token for the scheduled guest cleanup endpoint; ≥ 32 characters |
 
 Frontend (`frontend/.env.example`): `DEV_API_URL` (dev proxy target), and for the Netlify
 build only `BACKEND_URL` (the https URL of the Render service) and `PROXY_SECRET` (same
@@ -409,7 +405,7 @@ All three have free tiers. Choose EU regions everywhere.
 2. **Render (backend)**: *New → Blueprint* and select this repo (`render.yaml`), or create
    a Python web service with root `backend`, region **Frankfurt**, and the build/start
    commands from `render.yaml`. Set `DATABASE_URL` (Neon) and `ALLOWED_ORIGINS`
-   (your Netlify URL). `SECRET_KEY`, `MAINTENANCE_TOKEN` and `PROXY_SECRET` are generated.
+   (your Netlify URL). `SECRET_KEY` and `PROXY_SECRET` are generated.
    Migrations and the idempotent seed run on every start.
 3. **Netlify (frontend)**: import the repo with **base directory `frontend`**
    (`netlify.toml` provides build command, publish dir, headers and the `/api/*` proxy
@@ -419,8 +415,7 @@ All three have free tiers. Choose EU regions everywhere.
    the build if either is missing. Netlify passes cookies through the proxy; API responses
    carry `Cache-Control: no-store`, so they are never cached.
 4. Open the Netlify URL, register, and check *Settings → Exportă datele*.
-5. Set up the [guest cleanup](#guest-cleanup).
-6. Run the [post-deploy client IP check](#post-deploy-client-ip-check).
+5. Run the [post-deploy client IP check](#post-deploy-client-ip-check).
 
 ### Post-deploy client IP check
 
@@ -449,25 +444,6 @@ that touches the proxy, `render.yaml` or the secret:
    - directly to Render: `source=direct` and your network's prefix.
    - neither line may show `1.2.3.0/24` or `5.6.7.0/24` (the forged values).
 4. Set `LOG_CLIENT_IP_RESOLUTION=false` again.
-
-### Guest cleanup
-
-Expired guest accounts (session older than 7 days) are deleted with all their data by
-`POST /api/v1/internal/purge-guests`. The endpoint needs `Authorization: Bearer
-<MAINTENANCE_TOKEN>` and answers 404 while `MAINTENANCE_TOKEN` is unset. The workflow
-[`.github/workflows/purge-guests.yml`](.github/workflows/purge-guests.yml) calls it daily
-(03:17 UTC, with retries for a sleeping backend) and can also be started by hand.
-
-To enable it, add two repository secrets in GitHub (*Settings → Secrets and variables →
-Actions*):
-
-- `FITPLAN_API_URL`: the Render URL, e.g. `https://fitplan-api.onrender.com`;
-- `FITPLAN_MAINTENANCE_TOKEN`: the same value as `MAINTENANCE_TOKEN` on Render.
-
-Until both secrets exist, the workflow skips itself and expired guests are only removed
-opportunistically (on the next login, registration or guest start). GitHub may start
-scheduled runs late, so deletion happens within roughly a day after expiry, not at an
-exact time.
 
 ### Cold starts on free tiers
 
@@ -512,9 +488,9 @@ the instance awake, but it counts against Render's free hours and is not set up.
 
 - Passwords: argon2id. Login timing is uniform for unknown emails.
 - Sessions: random 256-bit token in an **httpOnly, Secure, SameSite=Lax** cookie. Only its
-  SHA-256 is stored. Logout deletes the session (and the whole account for guests). A
+  SHA-256 is stored. Logout deletes the session. A
   password change or account deletion invalidates all sessions.
-- Rate limiting: login per (email, IP) and per IP, registration and guest start per IP,
+- Rate limiting: login per (email, IP) and per IP, registration per IP,
   plus a global soft limit. The visitor IP comes from Netlify's
   `X-Nf-Client-Connection-Ip` only when the request carries the Netlify proxy secret
   (constant-time comparison). Otherwise the address that connected to Render is used
@@ -534,7 +510,7 @@ the instance awake, but it counts against Render's free hours and is not set up.
 - In memory only, never written anywhere: rate-limiter keys (IP, email + IP), dropped
   once outside the 15-minute window, and Open Food Facts search terms, removed in under
   24 hours by a background pruning thread.
-- Deletion: account deletion and guest cleanup hard-delete the rows immediately. Neon
+- Deletion: account deletion hard-deletes the rows immediately. Neon
   keeps a history of the database for its point-in-time restore window (set per project
   in Neon), so deleted rows stay recoverable there until that window passes.
 - Minimal data: the screening answers are never stored, only the outcome. Manual foods
@@ -641,12 +617,10 @@ technical:
 2. **Privacy policy.** Fill in the operator and contact placeholders, and have a lawyer
    review the policy, including the processing agreements with Neon, Render and Netlify
    and any transfers outside the EU.
-3. **Guest cleanup.** Set `MAINTENANCE_TOKEN` on Render and the two GitHub secrets
-   (see [Guest cleanup](#guest-cleanup)). The privacy policy promises the daily cleanup.
-4. **Open Food Facts.** Set `OFF_USER_AGENT`, fill in OFF's API usage form, and settle how to
+3. **Open Food Facts.** Set `OFF_USER_AGENT`, fill in OFF's API usage form, and settle how to
    meet ODbL section 4.6 for the locally cached products. The full list is in
    [`food_sources/LICENSING.md`](backend/app/nutrition/food_sources/LICENSING.md).
-5. **Client IP check.** Run the [post-deploy client IP check](#post-deploy-client-ip-check)
+4. **Client IP check.** Run the [post-deploy client IP check](#post-deploy-client-ip-check)
    and keep `TRUSTED_PROXY_HOPS` in line with what Render adds.
-6. **Neon restore window.** Check the project's history retention in Neon. The privacy
+5. **Neon restore window.** Check the project's history retention in Neon. The privacy
    policy says deleted data stays in Neon's restore history until that window passes.

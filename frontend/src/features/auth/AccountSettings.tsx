@@ -7,7 +7,6 @@ import { Card } from "@/components/ui/Card";
 import { TextField } from "@/components/ui/Field";
 import { errorMessage } from "@/lib/errors";
 import { changePassword, deleteAccount, exportData, logout } from "./api";
-import { GUEST_DAYS } from "./GuestButton";
 import { useMe } from "./AuthGuard";
 
 function useAction() {
@@ -77,7 +76,7 @@ function PasswordCard() {
   );
 }
 
-function DataCard({ isGuest }: { isGuest: boolean }) {
+function DataCard() {
   const router = useRouter();
   const { pending, run, feedback } = useAction();
 
@@ -94,7 +93,7 @@ function DataCard({ isGuest }: { isGuest: boolean }) {
 
   function onDelete(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const password = isGuest ? undefined : String(new FormData(event.currentTarget).get("password"));
+    const password = String(new FormData(event.currentTarget).get("password"));
     if (!window.confirm("Ștergi definitiv contul și toate datele? Acțiunea nu poate fi anulată.")) return;
     void run(async () => {
       await deleteAccount(password);
@@ -112,15 +111,13 @@ function DataCard({ isGuest }: { isGuest: boolean }) {
         Exportă datele (JSON)
       </Button>
       <form onSubmit={onDelete} className="border-border mt-6 flex flex-col gap-4 border-t pt-6">
-        {!isGuest && (
-          <TextField
-            label="Confirmă cu parola pentru ștergere"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
-        )}
+        <TextField
+          label="Confirmă cu parola pentru ștergere"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+        />
         <Button type="submit" variant="danger" loading={pending}>
           Șterge contul definitiv
         </Button>
@@ -137,36 +134,24 @@ export function AccountSettings() {
   return (
     <div className="flex flex-col gap-4">
       <Card className="flex flex-col gap-3">
-        {me.is_guest ? (
-          <p className="text-sm">
-            <span className="font-bold">Cont vizitator.</span>{" "}
-            <span className="text-muted">
-              Datele se șterg definitiv când ieși; altfel, contul expiră după {GUEST_DAYS} zile și e șters la
-              curățarea automată următoare. Pentru a le păstra, creează un cont cu email și parolă.
-            </span>
-          </p>
-        ) : (
-          <p className="text-muted text-sm">
-            Conectat ca <span className="text-fg font-semibold">{me.email}</span>
-          </p>
-        )}
+        <p className="text-muted text-sm">
+          Conectat ca <span className="text-fg font-semibold">{me.email}</span>
+        </p>
         <Button
-          variant={me.is_guest ? "danger" : "secondary"}
+          variant="secondary"
           loading={pending}
           onClick={() => {
-            if (me.is_guest && !window.confirm("Ieși? Toate datele contului de vizitator vor fi șterse."))
-              return;
             void run(async () => {
               await logout();
-              router.replace(me.is_guest ? "/" : "/autentificare");
+              router.replace("/autentificare");
             });
           }}
         >
-          {me.is_guest ? "Ieși și șterge datele" : "Deconectare"}
+          Deconectare
         </Button>
       </Card>
-      {!me.is_guest && <PasswordCard />}
-      <DataCard isGuest={me.is_guest} />
+      <PasswordCard />
+      <DataCard />
     </div>
   );
 }

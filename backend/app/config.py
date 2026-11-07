@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     login_rate_limit: int = 5
     login_ip_rate_limit: int = 20
     login_rate_window_seconds: int = 15 * 60
-    # Auth attempts (login, registration, guest start) per window for the whole app, counted
+    # Auth attempts (login, registration) per window for the whole app, counted
     # only after the per-visitor limits passed. Exceeding it answers 429 "auth_busy".
     auth_global_limit: int = 300
     # Number of X-Forwarded-For entries added by proxies we trust, counted from the right.
@@ -37,9 +37,6 @@ class Settings(BaseSettings):
     # Open Food Facts asks for "AppName/Version (contact email)"; set your own contact.
     off_user_agent: str = "FitPlan/0.1 (set OFF_USER_AGENT)"
     feature_ai_meal_parsing: bool = False
-    # Bearer token for internal maintenance endpoints (scheduled guest cleanup).
-    # Empty = endpoints disabled. Use a long random value (>= 32 characters).
-    maintenance_token: str = ""
 
     @field_validator("database_url")
     @classmethod
@@ -50,11 +47,11 @@ class Settings(BaseSettings):
                 return "postgresql+psycopg://" + value.removeprefix(prefix)
         return value
 
-    @field_validator("maintenance_token", "proxy_secret")
+    @field_validator("proxy_secret")
     @classmethod
     def long_enough_token(cls, value: str) -> str:
         if value and len(value) < 32:
-            raise ValueError("MAINTENANCE_TOKEN and PROXY_SECRET must be at least 32 characters")
+            raise ValueError("PROXY_SECRET must be at least 32 characters")
         return value
 
     @field_validator("allowed_origins", mode="before")

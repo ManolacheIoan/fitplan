@@ -159,3 +159,19 @@ def test_security_headers_and_health(client):
     assert r.json() == {"status": "ok"}
     assert r.headers["x-content-type-options"] == "nosniff"
     assert r.headers["cache-control"] == "no-store"
+
+
+def test_guest_mode_no_longer_exists(client, make_user):
+    # Every account needs an email and a password.
+    assert client.post(f"{API}/auth/guest", json={"consent": True}).status_code == 404
+    c = make_user()
+    assert c.post(f"{API}/internal/purge-guests").status_code == 404
+    me = c.get(f"{API}/auth/me").json()
+    assert "is_guest" not in me and me["email"]
+    assert "is_guest" not in c.get(f"{API}/account/export").json()
+
+
+def test_delete_account_always_requires_the_password(make_user):
+    c = make_user()
+    assert c.request("DELETE", f"{API}/account", json={}).status_code == 422
+    assert c.get(f"{API}/auth/me").status_code == 200

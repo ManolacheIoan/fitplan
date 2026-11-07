@@ -1,4 +1,3 @@
-import hmac
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -11,7 +10,6 @@ from app.auth.schemas import (
     AccountDeleteIn,
     ConsentIn,
     Credentials,
-    GuestIn,
     MeOut,
     PasswordChangeIn,
     RegisterIn,
@@ -74,13 +72,12 @@ def _clear_session_cookies(response: Response) -> None:
 
 def _start_session(db: Session, response: Response, user: User) -> None:
     token = service.create_session(db, user)
-    _set_session_cookies(response, token, service.session_ttl_days(user))
+    _set_session_cookies(response, token, get_settings().session_ttl_days)
 
 
 def _me(db: Session, user: User) -> MeOut:
     return MeOut(
         email=user.email,
-        is_guest=user.is_guest,
         created_at=user.created_at,
         consent_required=not service.has_current_consent(db, user),
         policy_version=service.PRIVACY_POLICY_VERSION,
@@ -96,17 +93,6 @@ def register(
         user = service.register(db, data.email, data.password)
     except service.EmailTakenError:
         raise HTTPException(status.HTTP_409_CONFLICT, "email_taken") from None
-    service.purge_expired_guests(db)
-    _start_session(db, response, user)
-    return _me(db, user)
-
-
-@router.post("/auth/guest", status_code=status.HTTP_201_CREATED)
-def continue_as_guest(
-    _: GuestIn, request: Request, response: Response, db: Session = Depends(get_db)
-) -> MeOut:
-    _check_registration(request)
-    user = service.create_guest(db)
     _start_session(db, response, user)
     return _me(db, user)
 
@@ -127,8 +113,6 @@ def login(
     user = service.authenticate(db, data.email, data.password)
     if user is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_credentials")
-    # No scheduler on the free tier: expired guest accounts are removed opportunistically.
-    service.purge_expired_guests(db)
     _start_session(db, response, user)
     return _me(db, user)
 
@@ -137,11 +121,7 @@ def login(
 def logout(request: Request, response: Response, db: Session = Depends(get_db)) -> None:
     token = request.cookies.get(SESSION_COOKIE)
     if token:
-        user = service.user_for_token(db, token)
-        if user is not None and user.is_guest:
-            service.delete_account(db, user)  # a guest's data does not outlive the session
-        else:
-            service.end_session(db, token)
+        service.end_session(db, token)
     _clear_session_cookies(response)
 
 
@@ -187,21 +167,7 @@ def delete_account(
     user: User = Depends(current_user),
     db: Session = Depends(get_db),
 ) -> None:
-    if not user.is_guest and not service.verify_password(user.password_hash, data.password or ""):
+    if not service.verify_password(user.password_hash, data.password):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "invalid_credentials")
     service.delete_account(db, user)
     _clear_session_cookies(response)
-
-
-# --- Internal maintenance (called by a scheduled job, not by browsers) --------------------
-
-
-@router.post("/internal/purge-guests", include_in_schema=False)
-def purge_guests(request: Request, db: Session = Depends(get_db)) -> dict[str, int]:
-    token = get_settings().maintenance_token
-    if not token:
-        raise HTTPException(status.HTTP_404_NOT_FOUND)  # disabled: behave as if absent
-    sent = request.headers.get("authorization", "").removeprefix("Bearer ")
-    if not hmac.compare_digest(sent.encode(), token.encode()):
-        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid_token")
-    return {"deleted": service.purge_expired_guests(db)}

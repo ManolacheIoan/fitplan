@@ -3,7 +3,6 @@ import type { ComponentType, SVGProps } from "react";
 import { BoltIcon, ChartIcon, DumbbellIcon, ShieldIcon } from "@/components/Icons";
 import { Logo } from "@/components/Logo";
 import { Disclaimer } from "@/components/ui/Disclaimer";
-import { GuestButton } from "@/features/auth/GuestButton";
 
 const FEATURES: [ComponentType<SVGProps<SVGSVGElement>>, string, string][] = [
   [DumbbellIcon, "Plan de sală", "Full Body, Upper/Lower, PPL sau Bro Split, exact pe zilele tale."],
@@ -44,9 +43,6 @@ export default function Home() {
           >
             Am deja cont
           </Link>
-        </div>
-        <div className="mt-3">
-          <GuestButton />
         </div>
       </section>
       <ul className="stagger grid gap-3 sm:grid-cols-2">

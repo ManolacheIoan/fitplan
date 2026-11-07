@@ -126,19 +126,11 @@ test("screening with a 'yes' answer shows only the professional-advice page", as
   await expect(page).toHaveURL(/\/recomandare/);
 });
 
-test("guest: continue without an account, data deleted on exit", async ({ page }) => {
-  await page.goto("/");
-  await page.getByRole("button", { name: "Continuă ca vizitator" }).click();
-  await page.getByRole("checkbox").check();
-  await page.getByRole("button", { name: "Intră ca vizitator" }).click();
-  await expect(page).toHaveURL(/\/profil\/chestionar/);
-
-  await page.goto("/setari");
-  await expect(page.getByText("Cont vizitator.")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Schimbă parola" })).toHaveCount(0);
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Ieși și șterge datele" }).click();
-  await expect(page).toHaveURL(/\/$/);
+test("an account is required: there is no guest mode", async ({ page }) => {
+  for (const path of ["/", "/autentificare", "/inregistrare"]) {
+    await page.goto(path);
+    await expect(page.getByText(/vizitator/i)).toHaveCount(0);
+  }
   await page.goto("/azi");
   await expect(page).toHaveURL(/\/autentificare/);
 });
