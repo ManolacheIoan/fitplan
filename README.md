@@ -1,5 +1,7 @@
 # FitPlan
 
+[![CI](https://github.com/ManolacheIoan/fitplan/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ManolacheIoan/fitplan/actions/workflows/ci.yml)
+
 A mobile-first, installable web app (PWA, Romanian UI) that acts as a personal trainer
 for adults (18+) who want to lose weight, maintain, or gain muscle. It generates a gym
 plan and approximate nutrition targets with **deterministic rules (no AI)**, and lets users
