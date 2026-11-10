@@ -1,0 +1,36 @@
+# Weekly update checks for the frontend (npm), the backend (pip) and GitHub Actions.
+# Dependabot opens a pull request for each update, and CI runs on it before anything is merged.
+# Minor and patch updates are grouped to keep the noise low.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Bucharest
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Bucharest
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      timezone: Europe/Bucharest
+    groups:
+      actions:
+        patterns: ["*"]
