@@ -582,10 +582,14 @@ def save_weight(
 
 
 def delete_weight(db: Session, profile: Profile, weight_id: int) -> None:
-    deleted = db.execute(
-        delete(WeightLog).where(WeightLog.id == weight_id, WeightLog.user_id == profile.user_id)
+    # RETURNING gives back the deleted id, or nothing when the entry does not exist (or is not
+    # the user's), without relying on the driver's rowcount.
+    deleted_id = db.scalar(
+        delete(WeightLog)
+        .where(WeightLog.id == weight_id, WeightLog.user_id == profile.user_id)
+        .returning(WeightLog.id)
     )
-    if deleted.rowcount == 0:
+    if deleted_id is None:
         raise _not_found("weight")
     latest = _latest_weight(db, profile.user_id)
     if latest is not None:
